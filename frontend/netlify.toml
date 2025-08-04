@@ -1,0 +1,13 @@
+###############################################
+#  Netlify configuration for Medius front-end #
+###############################################
+
+# ── Build settings ───────────────────────────
+[build]
+  # run *our own* install so we can pass --legacy-peer-deps
+  command = "npm install --legacy-peer-deps && npm run build"
+  publish = "out"          # ← change if your Next build folder is different
+
+# ── Environment variables available at build time ──────────
+[build.environment]
+  NODE_VERSION = "20"       # use same Node version as local dev
