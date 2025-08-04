@@ -8,17 +8,43 @@ import EscrowChat from "@/components/EscrowChat"
 import AnimatedBackButton from "@/components/animated-back-button"
 
 interface EscrowPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default function EscrowPage({ params }: EscrowPageProps) {
+  const [escrowId, setEscrowId] = useState<string>("")
+  const [loading, setLoading] = useState(true)
+  
+  useEffect(() => {
+    const getParams = async () => {
+      const resolvedParams = await params
+      setEscrowId(resolvedParams.id)
+      setLoading(false)
+    }
+    getParams()
+  }, [params])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/8 via-black to-amber-500/8"></div>
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/15 rounded-full blur-3xl animate-float-slow"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl animate-float-slow-reverse"></div>
+
+        <div className="flex items-center space-x-3 text-white relative z-10 animate-fade-in">
+          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-lg">Loading...</span>
+        </div>
+      </div>
+    )
+  }
   const [escrow, setEscrow] = useState<Escrow | null>(null)
   const [buyerProfile, setBuyerProfile] = useState<Profile | null>(null)
   const [sellerProfile, setSellerProfile] = useState<Profile | null>(null)
   const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [escrowLoading, setEscrowLoading] = useState(true)
   const [showPriceChange, setShowPriceChange] = useState(false)
   const [newPrice, setNewPrice] = useState("")
   const [checkingPayment, setCheckingPayment] = useState(false)
@@ -44,14 +70,14 @@ export default function EscrowPage({ params }: EscrowPageProps) {
     checkUser()
 
     const subscription = supabase
-      .channel(`escrow-updates-${params.id}`)
+      .channel(`escrow-updates-${escrowId}`)
       .on(
         "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
           table: "escrows",
-          filter: `id=eq.${params.id}`,
+          filter: `id=eq.${escrowId}`,
         },
         (payload) => {
           setEscrow(payload.new as Escrow)
@@ -60,14 +86,14 @@ export default function EscrowPage({ params }: EscrowPageProps) {
       .subscribe()
 
     const chatSubscription = supabase
-      .channel(`escrow-messages-${params.id}`)
+      .channel(`escrow-messages-${escrowId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "escrow_messages",
-          filter: `escrow_id=eq.${params.id}`,
+          filter: `escrow_id=eq.${escrowId}`,
         },
         (payload) => {
           const message = payload.new
@@ -82,7 +108,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
       subscription.unsubscribe()
       chatSubscription.unsubscribe()
     }
-  }, [params.id, router, user?.id, escrow?.buyer_id])
+  }, [escrowId, router, user?.id, escrow?.buyer_id])
 
   useEffect(() => {
     if (!escrow || !user || escrow.status !== "pending" || escrow.payment_method !== "crypto") {
@@ -101,7 +127,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
       const { data: escrowData, error: escrowError } = await supabase
         .from("escrows")
         .select("*")
-        .eq("id", params.id)
+        .eq("id", escrowId)
         .single()
 
       if (escrowError) throw escrowError
@@ -122,7 +148,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
     } catch (error: any) {
       setError(error.message)
     } finally {
-      setLoading(false)
+      setEscrowLoading(false)
     }
   }
 
@@ -134,7 +160,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
 
       if (!session) return
 
-      const response = await fetch(`http://localhost:5000/api/escrows/${escrow!.id}/check-payment`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow!.id}/check-payment`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -181,7 +207,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
         throw new Error("Not authenticated")
       }
 
-      const response = await fetch(`http://localhost:5000/api/escrows/${escrow.id}/confirm`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/confirm`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -244,7 +270,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
         throw new Error("Not authenticated")
       }
 
-      const response = await fetch(`http://localhost:5000/api/escrows/${escrow.id}/paypal-approve`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/paypal-approve`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -281,7 +307,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
         throw new Error("Not authenticated")
       }
 
-      const response = await fetch(`http://localhost:5000/api/escrows/${escrow.id}/confirm`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/confirm`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -471,7 +497,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
     }
   }
 
-  if (loading) {
+  if (escrowLoading) {
     return (
       <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
         <div className="absolute inset-0 bg-gradient-to-br from-orange-500/8 via-black to-amber-500/8"></div>

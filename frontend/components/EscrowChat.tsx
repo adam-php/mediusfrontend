@@ -280,7 +280,7 @@ export default function EscrowChat({
         throw new Error("Not authenticated")
       }
 
-      const response = await fetch(`http://localhost:5000/api/escrows/${escrow.id}/refund`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/refund`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -18,6 +18,8 @@ export default function CreateEscrow() {
   const [error, setError] = useState("")
   const [cryptoPrices, setCryptoPrices] = useState<{[key: string]: number}>({})
   const [loadingPrices, setLoadingPrices] = useState(false)
+  const [feeInfo, setFeeInfo] = useState<any>(null)
+  const [loadingFees, setLoadingFees] = useState(false)
   const router = useRouter()
 
   // Much more reasonable minimum USD amounts
@@ -69,11 +71,17 @@ export default function CreateEscrow() {
     
     if (numAmount < minAmount) {
       if (paymentMethod === "paypal") {
-        return `Minimum $${minAmount} USD for PayPal transactions`
+        return `Minimum $${minAmount} USD for PayPal transactions (covers fees)`
       } else {
         return `Minimum $${minAmount} USD to cover ${currency} network fees`
       }
     }
+    
+    // Check if amount is too small after fees
+    if (feeInfo && feeInfo.net_amount < 0.01) {
+      return "Amount too small - seller would receive less than $0.01"
+    }
+    
     return null
   }
 
@@ -156,7 +164,7 @@ export default function CreateEscrow() {
 
     const fetchCurrencies = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/supported-currencies")
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/supported-currencies`)
         const data = await response.json()
         setCurrencies(data)
         if (data.length > 0) {
@@ -214,7 +222,7 @@ export default function CreateEscrow() {
         finalCurrency = currency
       }
 
-      const response = await fetch("http://localhost:5000/api/escrows", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -244,6 +252,52 @@ export default function CreateEscrow() {
   }
 
   const cryptoAmount = getCryptoAmount()
+
+  const calculateFees = async () => {
+    if (!usdAmount || Number.parseFloat(usdAmount) <= 0) {
+      setFeeInfo(null)
+      return
+    }
+
+    setLoadingFees(true)
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calculate-fee`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: paymentMethod === 'paypal' ? Number.parseFloat(usdAmount) : Number.parseFloat(cryptoAmount || '0'),
+          currency: paymentMethod === 'paypal' ? 'USD' : currency,
+          payment_method: paymentMethod,
+          usd_amount: Number.parseFloat(usdAmount)
+        })
+      })
+
+      if (response.ok) {
+        const fees = await response.json()
+        setFeeInfo(fees)
+      } else {
+        console.error('Failed to calculate fees')
+        setFeeInfo(null)
+      }
+    } catch (error) {
+      console.error('Error calculating fees:', error)
+      setFeeInfo(null)
+    } finally {
+      setLoadingFees(false)
+    }
+  }
+
+  // Call calculateFees when amount or payment method changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      calculateFees()
+    }, 500) // Debounce for 500ms
+
+    return () => clearTimeout(timeoutId)
+  }, [usdAmount, paymentMethod, currency, cryptoAmount])
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden text-white">
@@ -378,6 +432,57 @@ export default function CreateEscrow() {
                       </div>
                     </div>
                   )}
+
+                  {/* Show platform fees */}
+                  {feeInfo && !loadingFees && (
+                    <div className="mt-3 p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-400/20 rounded-2xl backdrop-blur-sm">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <span className="text-blue-400">💰</span>
+                        <h4 className="text-blue-300 font-semibold text-sm">Fee Breakdown</h4>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-blue-300">Transaction Amount:</span>
+                          <span className="text-blue-200 font-medium">${feeInfo.net_amount.toFixed(2)}</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-blue-300">
+                            Platform Fee ({feeInfo.fee_percentage}%):
+                          </span>
+                          <span className="text-blue-200 font-medium">${feeInfo.fee_amount.toFixed(2)}</span>
+                        </div>
+                        
+                        <div className="border-t border-blue-400/20 pt-2 mt-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-blue-200 font-semibold">Total You Pay:</span>
+                            <span className="text-blue-100 font-bold text-lg">${feeInfo.total_amount.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Fee explanation */}
+                        <div className="mt-3 p-2 bg-blue-500/10 rounded-lg">
+                          <p className="text-xs text-blue-300/80">
+                            {paymentMethod === 'paypal' 
+                              ? "PayPal transactions: 3% platform fee"
+                              : feeInfo.total_amount < 50 
+                                ? "Crypto under $50: 2% platform fee" 
+                                : "Crypto over $50: 1.5% platform fee"
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Loading fees indicator */}
+                  {loadingFees && usdAmount && (
+                    <div className="mt-3 flex items-center space-x-2 text-xs text-blue-400">
+                      <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      <span>Calculating fees...</span>
+                    </div>
+                  )}
                   
                   {/* Show warning if amount is too low */}
                   {usdAmount && validateAmount() && (
@@ -440,7 +545,7 @@ export default function CreateEscrow() {
               >
                 <h3 className="text-orange-300 font-semibold mb-3 flex items-center space-x-2">
                   <span>ℹ️</span>
-                  <span>How Medius Escrow Works</span>
+                  <span>How USD-Based Escrow Works</span>
                 </h3>
                 <ul className="text-sm text-orange-200/80 space-y-2">
                   <li className="flex items-start space-x-2 animate-fade-in" style={{ animationDelay: "0.6s" }}>
@@ -453,7 +558,7 @@ export default function CreateEscrow() {
                   </li>
                   <li className="flex items-start space-x-2 animate-fade-in" style={{ animationDelay: "0.8s" }}>
                     <span className="text-orange-400 mt-0.5">•</span>
-                    <span>You deposit the calculated crypto amount</span>
+                    <span>Platform fee: 2% crypto under $50, 1.5% over $50, 3% PayPal</span>
                   </li>
                   <li className="flex items-start space-x-2 animate-fade-in" style={{ animationDelay: "0.9s" }}>
                     <span className="text-orange-400 mt-0.5">•</span>
@@ -461,7 +566,7 @@ export default function CreateEscrow() {
                   </li>
                   <li className="flex items-start space-x-2 animate-fade-in" style={{ animationDelay: "1.0s" }}>
                     <span className="text-orange-400 mt-0.5">•</span>
-                    <span className="text-orange-300 font-medium">Minimum amounts ensure sufficient funds to cover blockchain fees</span>
+                    <span className="text-orange-300 font-medium">Seller receives the net amount after platform fees</span>
                   </li>
                 </ul>
               </div>

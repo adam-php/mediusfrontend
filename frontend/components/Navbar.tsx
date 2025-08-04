@@ -71,10 +71,10 @@ export default function Navbar() {
                 <div className="absolute inset-0 bg-orange-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300 scale-95 group-hover:scale-100"></div>
               </Link>
               <Link
-                href="/create-escrow"
+                href="https://discord.gg/8pzvCMVz"
                 className="text-gray-300 hover:text-orange-400 transition-all duration-300 font-medium relative group px-3 py-2 rounded-lg hover:scale-105 transform ease-out"
               >
-                <span className="relative z-10">Create Escrow</span>
+                <span className="relative z-10">Contact Us</span>
                 <div className="absolute inset-0 bg-orange-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300 scale-95 group-hover:scale-100"></div>
               </Link>
               <div className="flex items-center space-x-4">

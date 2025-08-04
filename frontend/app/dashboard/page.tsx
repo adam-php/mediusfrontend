@@ -10,6 +10,13 @@ export default function Dashboard() {
   const [escrows, setEscrows] = useState<Escrow[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
+  const [stats, setStats] = useState({
+    total: 0,
+    completed: 0,
+    pending: 0,
+    totalValue: 0
+  })
+  const [prices, setPrices] = useState<Record<string, number>>({}) // live crypto prices
   const router = useRouter()
 
   useEffect(() => {
@@ -22,23 +29,102 @@ export default function Dashboard() {
         return
       }
       setUser(user)
-      fetchEscrows()
+      fetchEscrows(user.id)
+      fetchPrices()            // fetch prices once at load
+      const id = setInterval(fetchPrices, 60_000) // refresh each minute
+      return () => clearInterval(id)
     }
 
     checkUser()
   }, [router])
 
-  const fetchEscrows = async () => {
+  const fetchPrices = async () => {
     try {
-      const { data, error } = await supabase.from("escrows").select("*").order("created_at", { ascending: false })
+      const idMap: Record<string, string> = {
+        BTC: "bitcoin",
+        ETH: "ethereum",
+        LTC: "litecoin",
+        BCH: "bitcoin-cash",
+        DOGE: "dogecoin",
+        XRP: "ripple",
+        ADA: "cardano",
+        DOT: "polkadot",
+        MATIC: "matic-network",
+        SOL: "solana",
+        AVAX: "avalanche-2",
+        TRX: "tron",
+        BNB: "binancecoin",
+        ATOM: "cosmos",
+        XLM: "stellar"
+      }
+      const ids = Object.values(idMap).join(",")
+      const res = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`
+      )
+      if (!res.ok) throw new Error("price fetch failed")
+      const data = await res.json()
+      const p: Record<string, number> = {}
+      for (const [sym, id] of Object.entries(idMap)) {
+        if (data[id]?.usd) p[sym] = data[id].usd
+      }
+      setPrices(p)
+    } catch (e) {
+      console.warn("Price fetch error, using cached values", e)
+    }
+  }
+
+  const fetchEscrows = async (userId: string) => {
+    try {
+      // Fetch only escrows where user is buyer OR seller
+      const { data, error } = await supabase
+        .from("escrows")
+        .select("*")
+        .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+        .order("created_at", { ascending: false })
 
       if (error) throw error
-      setEscrows(data || [])
+      
+      const escrowData = data || []
+      setEscrows(escrowData)
+      
     } catch (error) {
       console.error("Error fetching escrows:", error)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Recalculate stats whenever escrows or prices change
+  useEffect(() => {
+    if (escrows.length > 0) {
+      // ── calculate USD value with live price fallback (only completed escrows) ──
+      const totalUsd = escrows
+        .filter(e => e.status === 'completed')
+        .reduce((sum, e) => {
+          if (e.currency === "USD" || e.payment_method === "paypal") {
+            return sum + Number(e.usd_amount ?? e.amount)
+          }
+          const live = prices[e.currency]
+          if (live) return sum + Number(e.amount) * live
+          return sum + Number(e.usd_amount ?? 0) // fallback
+        }, 0)
+
+      // Calculate stats
+      const newStats = {
+        total: escrows.length,
+        completed: escrows.filter(e => e.status === 'completed').length,
+        pending: escrows.filter(e => e.status === 'pending' || e.status === 'funded').length,
+        totalValue: totalUsd
+      }
+      setStats(newStats)
+    }
+  }, [escrows, prices])
+
+  const getUserRole = (escrow: Escrow) => {
+    if (!user) return "Unknown"
+    if (escrow.buyer_id === user.id) return "Buyer"
+    if (escrow.seller_id === user.id) return "Seller"
+    return "Observer"
   }
 
   const getStatusColor = (status: string) => {
@@ -85,6 +171,7 @@ export default function Dashboard() {
 
       <div className="container mx-auto px-4 py-8 relative z-10">
         <div className="max-w-7xl mx-auto">
+          {/* Header */}
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-8 space-y-4 lg:space-y-0">
             <div className="animate-slide-in-left">
               <h1 className="text-4xl font-bold text-white mb-2">
@@ -108,6 +195,61 @@ export default function Dashboard() {
               <span className="relative z-10 group-hover:translate-x-1 transition-transform duration-300">→</span>
             </Link>
           </div>
+
+          {/* Stats Cards */}
+          {escrows.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all duration-300 animate-fade-in-up">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center">
+                    <span className="text-orange-400 text-xl">📊</span>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Total Escrows</p>
+                    <p className="text-white text-2xl font-bold">{stats.total}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all duration-300 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                    <span className="text-green-400 text-xl">✅</span>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Completed</p>
+                    <p className="text-white text-2xl font-bold">{stats.completed}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all duration-300 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center">
+                    <span className="text-yellow-400 text-xl">⏳</span>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Pending</p>
+                    <p className="text-white text-2xl font-bold">{stats.pending}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all duration-300 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                    <span className="text-blue-400 text-xl">💰</span>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Total Value</p>
+                    <p className="text-white text-2xl font-bold">
+                      ${stats.totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {escrows.length === 0 ? (
             <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl p-12 text-center shadow-2xl shadow-orange-500/10 relative overflow-hidden hover:border-white/15 hover:bg-white/8 transition-all duration-500 ease-out animate-fade-in-up">
@@ -159,7 +301,7 @@ export default function Dashboard() {
 
                     <div className="relative z-10">
                       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start mb-4 space-y-3 lg:space-y-0">
-                        <div className="flex-1">
+                      <div className="flex-1">
                           <div className="flex items-center space-x-3 mb-2">
                             <h3 className="text-xl font-bold text-white group-hover:text-orange-100 transition-colors duration-300">
                               Escrow #{escrow.id.slice(0, 8)}
@@ -171,8 +313,11 @@ export default function Dashboard() {
                             >
                               {escrow.status.toUpperCase()}
                             </span>
+                            <span className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded-lg text-xs font-medium">
+                              {getUserRole(escrow)}
+                            </span>
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-400">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-gray-400">
                             <div className="flex items-center space-x-2 hover:text-orange-300 transition-colors duration-300">
                               <span className="text-orange-400">💰</span>
                               <span>
@@ -180,8 +325,19 @@ export default function Dashboard() {
                               </span>
                             </div>
                             <div className="flex items-center space-x-2 hover:text-orange-300 transition-colors duration-300">
+                              <span className="text-orange-400">💵</span>
+                              <span>${(() => {
+                                const usd = escrow.currency === "USD" || escrow.payment_method === "paypal"
+                                  ? Number(escrow.usd_amount ?? escrow.amount)
+                                  : prices[escrow.currency]
+                                  ? Number(escrow.amount) * prices[escrow.currency]
+                                  : Number(escrow.usd_amount ?? 0)
+                                return usd.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                              })()} USD</span>
+                            </div>
+                            <div className="flex items-center space-x-2 hover:text-orange-300 transition-colors duration-300">
                               <span className="text-orange-400">⚡</span>
-                              <span>{escrow.payment_method}</span>
+                              <span className="capitalize">{escrow.payment_method}</span>
                             </div>
                             <div className="flex items-center space-x-2 hover:text-orange-300 transition-colors duration-300">
                               <span className="text-orange-400">📅</span>

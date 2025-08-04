@@ -16,8 +16,8 @@ export default function Home() {
       if (user) {
         router.push("/dashboard")
       } else {
-        // Redirect to your landing page subdomain
-        window.location.href = "https://mediusapp.netlify.app"
+        // Redirect to auth page
+        window.location.href = "/auth"
       }
     }
     
