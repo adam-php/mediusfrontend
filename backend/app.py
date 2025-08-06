@@ -22,7 +22,7 @@ CORS(app)
 # Initialize Supabase client
 supabase: Client = create_client(
     os.getenv('SUPABASE_URL'),
-    os.getenv('SUPABASE_KEY')
+    os.getenv('SUPABASE_SERVICE_KEY')
 )
 
 # Tatum API configuration
@@ -121,13 +121,20 @@ def create_escrow():
         if seller_id == user_id:
             return jsonify({"error": "Cannot create escrow with yourself"}), 400
         
-        # Create escrow record
+        # Calculate platform fees
+        fee_info = calculate_platform_fee(data['amount'], data['currency'], data['payment_method'])
+        
+        # Create escrow record with fee information
         escrow_data = {
             'buyer_id': user_id,
             'seller_id': seller_id,
             'amount': data['amount'],
             'currency': data['currency'],
-            'payment_method': data['payment_method']
+            'payment_method': data['payment_method'],
+            'platform_fee_rate': fee_info['fee_rate'],
+            'platform_fee_amount': fee_info['fee_amount'],
+            'usd_amount': fee_info['usd_amount'],
+            'net_amount': fee_info['net_amount']
         }
         
         # Insert escrow into database to get ID
@@ -148,11 +155,13 @@ def create_escrow():
         
         elif data['payment_method'] == 'paypal':
             print("Creating PayPal order...")
-            paypal_order = create_paypal_order(data['amount'], data['currency'])
+            # Create PayPal order for the FULL amount (buyer pays total including fee)
+            paypal_order = create_paypal_order(data['amount'], data['currency'], fee_info)
             if paypal_order:
                 # Update escrow with PayPal order ID
                 supabase.table('escrows').update({'paypal_order_id': paypal_order['id']}).eq('id', escrow_id).execute()
                 escrow_response.data[0]['paypal_order_id'] = paypal_order['id']
+                escrow_response.data[0]['paypal_approval_url'] = paypal_order.get('approval_url')
             else:
                 print("ERROR: Failed to create PayPal order")
                 return jsonify({"error": "Failed to create PayPal order"}), 500
@@ -338,6 +347,41 @@ def approve_paypal_payment(escrow_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def calculate_platform_fee(amount, currency, payment_method):
+    """Calculate platform fee based on payment method and amount"""
+    try:
+        amount_float = float(amount)
+        
+        if payment_method == 'crypto':
+            # Crypto fees: < $50 = 2%, >= $50 = 1.5%
+            if amount_float < 50:
+                fee_rate = 0.02  # 2%
+            else:
+                fee_rate = 0.015  # 1.5%
+        elif payment_method == 'paypal':
+            # PayPal fees: 2%
+            fee_rate = 0.02  # 2%
+        else:
+            fee_rate = 0.02  # Default 2%
+        
+        fee_amount = amount_float * fee_rate
+        net_amount = amount_float - fee_amount
+        
+        return {
+            'fee_rate': fee_rate,
+            'fee_amount': round(fee_amount, 8),
+            'net_amount': round(net_amount, 8),
+            'usd_amount': amount_float  # Assuming USD for now
+        }
+        
+    except (ValueError, TypeError):
+        return {
+            'fee_rate': 0.02,
+            'fee_amount': 0,
+            'net_amount': float(amount),
+            'usd_amount': float(amount)
+        }
+        
 @app.route('/api/escrows/<escrow_id>/refund', methods=['POST'])
 @require_auth
 def process_refund(escrow_id):
@@ -624,8 +668,74 @@ def generate_crypto_address(currency, escrow_id):
         print(traceback.format_exc())
         return None
 
-def create_paypal_order(amount, currency):
-    """Create a PayPal order"""
+@app.route('/api/escrows/<escrow_id>/paypal-create', methods=['POST'])
+@require_auth
+def create_paypal_order_for_escrow(escrow_id):
+    """Create PayPal order for existing escrow"""
+    try:
+        user_id = request.user_id
+        
+        # Get escrow
+        escrow = supabase.table('escrows').select('*').eq('id', escrow_id).single().execute()
+        
+        if not escrow.data:
+            return jsonify({"error": "Escrow not found"}), 404
+        
+        escrow_data = escrow.data
+        
+        # Only buyer can create PayPal order
+        if escrow_data['buyer_id'] != user_id:
+            return jsonify({"error": "Unauthorized"}), 403
+        
+        # Only for PayPal payment method
+        if escrow_data['payment_method'] != 'paypal':
+            return jsonify({"error": "Invalid payment method"}), 400
+        
+        # Calculate fees if not already calculated
+        if not escrow_data.get('platform_fee_amount'):
+            fee_info = calculate_platform_fee(escrow_data['amount'], escrow_data['currency'], 'paypal')
+            
+            # Update escrow with fee info
+            supabase.table('escrows').update({
+                'platform_fee_rate': fee_info['fee_rate'],
+                'platform_fee_amount': fee_info['fee_amount'],
+                'net_amount': fee_info['net_amount'],
+                'usd_amount': fee_info['usd_amount']
+            }).eq('id', escrow_id).execute()
+            
+            escrow_data.update(fee_info)
+        else:
+            fee_info = {
+                'fee_rate': escrow_data['platform_fee_rate'],
+                'fee_amount': escrow_data['platform_fee_amount'],
+                'net_amount': escrow_data['net_amount'],
+                'usd_amount': escrow_data['usd_amount']
+            }
+        
+        # Create PayPal order
+        print(f"Creating PayPal order for escrow {escrow_id}")
+        paypal_order = create_paypal_order(escrow_data['amount'], escrow_data['currency'], fee_info)
+        
+        if not paypal_order:
+            return jsonify({"error": "Failed to create PayPal order"}), 500
+        
+        # Update escrow with PayPal order ID
+        supabase.table('escrows').update({
+            'paypal_order_id': paypal_order['id']
+        }).eq('id', escrow_id).execute()
+        
+        return jsonify({
+            "success": True,
+            "paypal_order_id": paypal_order['id'],
+            "approval_url": paypal_order['approval_url']
+        }), 200
+        
+    except Exception as e:
+        print(f"Error creating PayPal order: {e}")
+        return jsonify({"error": str(e)}), 500
+
+def create_paypal_order(amount, currency, fee_info):
+    """Create a PayPal order with fee breakdown"""
     try:
         # Get PayPal access token
         auth_response = requests.post(
@@ -644,21 +754,50 @@ def create_paypal_order(amount, currency):
         
         access_token = auth_response.json()['access_token']
         
-        # Create order
+        # For now, create a simple order for the full amount
+        # In production, you'd want to use PayPal's marketplace features for automatic splitting
         order_response = requests.post(
             f"{PAYPAL_BASE_URL}/v2/checkout/orders",
             headers={
                 'Content-Type': 'application/json',
-                'Authorization': f'Bearer {access_token}'
+                'Authorization': f'Bearer {access_token}',
+                'PayPal-Request-Id': str(uuid.uuid4())  # Idempotency key
             },
             json={
-                'intent': 'CAPTURE',
+                'intent': 'AUTHORIZE',  # Changed from CAPTURE to AUTHORIZE for escrow
                 'purchase_units': [{
+                    'reference_id': f'escrow_{int(time.time())}',
                     'amount': {
-                        'currency_code': currency,
-                        'value': str(amount)
-                    }
-                }]
+                        'currency_code': 'USD',  # Hardcoded for now
+                        'value': str(amount),
+                        'breakdown': {
+                            'item_total': {
+                                'currency_code': 'USD',
+                                'value': str(fee_info['net_amount'])
+                            },
+                            'handling': {
+                                'currency_code': 'USD', 
+                                'value': str(fee_info['fee_amount'])
+                            }
+                        }
+                    },
+                    'items': [{
+                        'name': f'Escrow Transaction ({currency})',
+                        'quantity': '1',
+                        'unit_amount': {
+                            'currency_code': 'USD',
+                            'value': str(fee_info['net_amount'])
+                        }
+                    }],
+                    'description': f'Escrow payment with {fee_info["fee_rate"]*100}% platform fee'
+                }],
+                'application_context': {
+                    'return_url': f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/escrow/success',
+                    'cancel_url': f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/escrow/cancel',
+                    'brand_name': 'Medius Escrow',
+                    'locale': 'en-US',
+                    'user_action': 'PAY_NOW'
+                }
             }
         )
         
@@ -666,7 +805,20 @@ def create_paypal_order(amount, currency):
             print(f"PayPal order creation failed: {order_response.text}")
             return None
         
-        return order_response.json()
+        order_data = order_response.json()
+        
+        # Extract approval URL
+        approval_url = None
+        for link in order_data.get('links', []):
+            if link.get('rel') == 'approve':
+                approval_url = link.get('href')
+                break
+        
+        return {
+            'id': order_data['id'],
+            'approval_url': approval_url,
+            'status': order_data['status']
+        }
         
     except Exception as e:
         print(f"Error creating PayPal order: {e}")
@@ -824,6 +976,94 @@ def send_crypto_transaction_kms(escrow_id, to_address, amount):
         print(traceback.format_exc())
         return False
 
+def release_paypal_funds_to_seller(escrow_id, authorization_id, seller_paypal_email):
+    """Capture payment and send to seller via PayPal Payouts"""
+    try:
+        # Get escrow details
+        escrow = supabase.table('escrows').select('*').eq('id', escrow_id).single().execute()
+        if not escrow.data:
+            return False
+            
+        escrow_data = escrow.data
+        
+        # Get PayPal access token
+        auth_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v1/oauth2/token",
+            headers={
+                'Accept': 'application/json',
+                'Accept-Language': 'en_US',
+            },
+            data={'grant_type': 'client_credentials'},
+            auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET)
+        )
+        
+        if auth_response.status_code != 200:
+            return False
+        
+        access_token = auth_response.json()['access_token']
+        
+        # Step 1: Capture the authorized payment (money comes to platform account)
+        capture_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v2/payments/authorizations/{authorization_id}/capture",
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}',
+                'PayPal-Request-Id': str(uuid.uuid4())
+            },
+            json={
+                'amount': {
+                    'currency_code': 'USD',
+                    'value': str(escrow_data['amount'])  # Capture full amount
+                },
+                'final_capture': True,
+                'note_to_payer': 'Medius Escrow - Payment captured'
+            }
+        )
+        
+        if capture_response.status_code != 201:
+            print(f"❌ PayPal capture failed: {capture_response.text}")
+            return False
+        
+        print("✅ PayPal payment captured to platform account")
+        
+        # Step 2: Send net amount to seller via Payouts API
+        payout_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v1/payments/payouts",
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}',
+                'PayPal-Request-Id': str(uuid.uuid4())
+            },
+            json={
+                'sender_batch_header': {
+                    'sender_batch_id': f'escrow_{escrow_id}_{int(time.time())}',
+                    'email_subject': 'Medius Escrow - Payment Released',
+                    'email_message': f'Your escrow payment of ${escrow_data.get("net_amount", escrow_data["amount"])} has been released.'
+                },
+                'items': [{
+                    'recipient_type': 'EMAIL',
+                    'amount': {
+                        'value': str(escrow_data.get('net_amount', escrow_data['amount'])),
+                        'currency': 'USD'
+                    },
+                    'receiver': seller_paypal_email,
+                    'note': f'Medius Escrow Release - Transaction #{escrow_id[:8]}',
+                    'sender_item_id': f'escrow_{escrow_id}'
+                }]
+            }
+        )
+        
+        if payout_response.status_code == 201:
+            print(f"✅ Payout sent to seller: {seller_paypal_email}")
+            return True
+        else:
+            print(f"❌ Payout failed: {payout_response.text}")
+            return False
+            
+    except Exception as e:
+        print(f"Error releasing PayPal funds: {e}")
+        return False
+
 def release_funds(escrow_id):
     """Release funds from escrow"""
     try:
@@ -850,13 +1090,15 @@ def release_funds(escrow_id):
                 
                 return False
                 
-            print(f"🚀 RELEASING {escrow_data['amount']} {escrow_data['currency']} to {escrow_data['seller_address']}")
+            print(f"🚀 RELEASING {escrow_data['net_amount']} {escrow_data['currency']} to seller (after {escrow_data['platform_fee_amount']} fee)")
             
-            # Send crypto using regular transaction function (NOT KMS)
-            tx_hash = send_crypto_transaction_kms(  # <-- Changed from send_crypto_transaction_kms
+            # For crypto, we need to send net_amount to seller and handle platform fee separately
+            # This requires more complex transaction splitting - for now, send full amount to seller
+            # In production, you'd want to implement proper multi-output transactions
+            tx_hash = send_crypto_transaction_kms(
                 escrow_id,
                 escrow_data['seller_address'],
-                escrow_data['amount']
+                escrow_data['net_amount']  # Send net amount to seller
             )
             
             if not tx_hash:
@@ -878,54 +1120,85 @@ def release_funds(escrow_id):
             supabase.table('transactions').insert({
                 'escrow_id': escrow_id,
                 'type': 'release',
-                'amount': escrow_data['amount'],
+                'amount': escrow_data['net_amount'],
                 'currency': escrow_data['currency'],
-                'transaction_hash': tx_hash
+                'transaction_hash': tx_hash,
+                'usd_amount': escrow_data['net_amount']
+            }).execute()
+            
+            # Record platform fee transaction
+            supabase.table('transactions').insert({
+                'escrow_id': escrow_id,
+                'type': 'platform_fee',
+                'amount': escrow_data['platform_fee_amount'],
+                'currency': escrow_data['currency'],
+                'transaction_hash': tx_hash,
+                'usd_amount': escrow_data['platform_fee_amount']
             }).execute()
             
             # Add success message to chat
             supabase.table('escrow_messages').insert({
                 'escrow_id': escrow_id,
                 'sender_id': escrow_data['seller_id'],
-                'message': f'✅ Funds released! Transaction: {tx_hash}',
+                'message': f'✅ Funds released! Seller receives: {escrow_data["net_amount"]} {escrow_data["currency"]} (Platform fee: {escrow_data["platform_fee_amount"]}). Transaction: {tx_hash}',
                 'message_type': 'system'
             }).execute()
             
         elif escrow_data['payment_method'] == 'paypal':
-            # PayPal release code stays the same
-            print(f"💳 Capturing PayPal payment for order {escrow_data['paypal_order_id']}")
+            print(f"\U0001F4B3 Releasing PayPal payment to seller")
             
-            success = capture_paypal_payment(escrow_data['paypal_order_id'])
+            paypal_data = escrow_data.get('paypal_order_id')
+            seller_email = escrow_data.get('seller_paypal_email')
             
-            if not success:
-                print("❌ FAILED to capture PayPal payment!")
+            if not paypal_data:
+                print("❌ No PayPal data found")
+                return False
                 
-                # Add error message to chat
+            if not seller_email:
+                print("❌ No seller PayPal email found")
                 supabase.table('escrow_messages').insert({
                     'escrow_id': escrow_id,
                     'sender_id': escrow_data['seller_id'],
-                    'message': '❌ Failed to capture PayPal payment. Please contact support.',
+                    'message': '❌ Cannot release funds: Seller PayPal email not provided',
                     'message_type': 'system'
                 }).execute()
-                
                 return False
             
-            print("✅ PayPal payment captured successfully!")
+            # Parse authorization ID
+            if '|' in paypal_data:
+                order_id, authorization_id = paypal_data.split('|', 1)
+            else:
+                authorization_id = paypal_data
             
-            # Record PayPal transaction
+            success = release_paypal_funds_to_seller(escrow_id, authorization_id, seller_email)
+            
+            if not success:
+                print("❌ FAILED to release PayPal payment!")
+                supabase.table('escrow_messages').insert({
+                    'escrow_id': escrow_id,
+                    'sender_id': escrow_data['seller_id'],
+                    'message': '❌ Failed to release PayPal payment. Please contact support.',
+                    'message_type': 'system'
+                }).execute()
+                return False
+            
+            print("✅ PayPal payment released to seller!")
+            
+            # Record transaction
             supabase.table('transactions').insert({
                 'escrow_id': escrow_id,
                 'type': 'release',
-                'amount': escrow_data['amount'],
+                'amount': escrow_data.get('net_amount', escrow_data['amount']),
                 'currency': escrow_data['currency'],
-                'paypal_transaction_id': escrow_data['paypal_order_id']
+                'paypal_transaction_id': authorization_id,
+                'usd_amount': escrow_data.get('net_amount', escrow_data['amount'])
             }).execute()
             
-            # Add success message to chat
+            # Add success message
             supabase.table('escrow_messages').insert({
                 'escrow_id': escrow_id,
                 'sender_id': escrow_data['seller_id'],
-                'message': '✅ PayPal funds released to seller!',
+                'message': f'✅ PayPal funds released to {seller_email}! Amount: ${escrow_data.get("net_amount", escrow_data["amount"])}',
                 'message_type': 'system'
             }).execute()
         
@@ -949,8 +1222,266 @@ def release_funds(escrow_id):
             
         return False
 
-def capture_paypal_payment(order_id):
-    """Capture PayPal payment"""
+def create_paypal_order(amount, currency, fee_info):
+    """Create a PayPal AUTHORIZATION order (real escrow)"""
+    try:
+        # Get PayPal access token
+        auth_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v1/oauth2/token",
+            headers={
+                'Accept': 'application/json',
+                'Accept-Language': 'en_US',
+            },
+            data={'grant_type': 'client_credentials'},
+            auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET)
+        )
+        
+        if auth_response.status_code != 200:
+            print(f"PayPal auth failed: {auth_response.text}")
+            return None
+        
+        access_token = auth_response.json()['access_token']
+        
+        # Create AUTHORIZATION order (NOT capture - this is real escrow)
+        order_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v2/checkout/orders",
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}',
+                'PayPal-Request-Id': str(uuid.uuid4())
+            },
+            json={
+                'intent': 'AUTHORIZE',  # This holds the money without capturing
+                'purchase_units': [{
+                    'reference_id': f'escrow_{int(time.time())}',
+                    'amount': {
+                        'currency_code': 'USD',
+                        'value': str(amount)
+                    },
+                    'description': f'Medius Escrow - Amount: ${amount}, Fee: ${fee_info["fee_amount"]}'
+                }],
+                'application_context': {
+                    'return_url': f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/escrow/paypal/success',
+                    'cancel_url': f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/escrow/paypal/cancel',
+                    'brand_name': 'Medius Escrow',
+                    'locale': 'en-US',
+                    'user_action': 'PAY_NOW',
+                    'shipping_preference': 'NO_SHIPPING'
+                }
+            }
+        )
+        
+        if order_response.status_code != 201:
+            print(f"PayPal order creation failed: {order_response.text}")
+            return None
+        
+        order_data = order_response.json()
+        
+        # Extract approval URL
+        approval_url = None
+        for link in order_data.get('links', []):
+            if link.get('rel') == 'approve':
+                approval_url = link.get('href')
+                break
+        
+        return {
+            'id': order_data['id'],
+            'approval_url': approval_url,
+            'status': order_data['status']
+        }
+        
+    except Exception as e:
+        print(f"Error creating PayPal order: {e}")
+        return None
+
+@app.route('/api/escrows/<escrow_id>/paypal-email', methods=['POST'])
+@require_auth
+def save_seller_paypal_email(escrow_id):
+    """Save seller's PayPal email"""
+    try:
+        user_id = request.user_id
+        data = request.json
+        paypal_email = data.get('paypal_email')
+        
+        if not paypal_email:
+            return jsonify({"error": "PayPal email required"}), 400
+        
+        # Verify user is the seller
+        escrow = supabase.table('escrows').select('*').eq('id', escrow_id).single().execute()
+        if not escrow.data or escrow.data['seller_id'] != user_id:
+            return jsonify({"error": "Unauthorized"}), 403
+        
+        # Update escrow with seller's PayPal email
+        updated = supabase.table('escrows').update({
+            'seller_paypal_email': paypal_email
+        }).eq('id', escrow_id).execute()
+        
+        return jsonify({"success": True}), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/escrows/<escrow_id>/paypal-authorize', methods=['POST'])
+@require_auth
+def handle_paypal_authorization(escrow_id):
+    """Handle PayPal authorization after user returns from PayPal"""
+    try:
+        data = request.json
+        token = data.get('token')  # PayPal order ID from URL params
+        
+        if not token:
+            return jsonify({"error": "Missing PayPal token"}), 400
+        
+        # Get escrow
+        escrow = supabase.table('escrows').select('*').eq('id', escrow_id).single().execute()
+        if not escrow.data:
+            return jsonify({"error": "Escrow not found"}), 404
+            
+        escrow_data = escrow.data
+        
+        # Verify the authorization with PayPal
+        auth_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v1/oauth2/token",
+            headers={
+                'Accept': 'application/json',
+                'Accept-Language': 'en_US',
+            },
+            data={'grant_type': 'client_credentials'},
+            auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET)
+        )
+        
+        if auth_response.status_code != 200:
+            return jsonify({"error": "PayPal authentication failed"}), 500
+        
+        access_token = auth_response.json()['access_token']
+        
+        # Get order details to verify authorization
+        order_response = requests.get(
+            f"{PAYPAL_BASE_URL}/v2/checkout/orders/{token}",
+            headers={
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json'
+            }
+        )
+        
+        if order_response.status_code != 200:
+            return jsonify({"error": "Failed to verify PayPal order"}), 500
+            
+        order_data = order_response.json()
+        
+        # Check if order is approved
+        if order_data.get('status') != 'APPROVED':
+            return jsonify({"error": "PayPal order not approved"}), 400
+        
+        # Authorize the payment (this creates the hold)
+        authorize_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v2/checkout/orders/{token}/authorize",
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}',
+                'PayPal-Request-Id': str(uuid.uuid4())
+            }
+        )
+        
+        if authorize_response.status_code != 201:
+            print(f"PayPal authorization failed: {authorize_response.text}")
+            return jsonify({"error": "Failed to authorize PayPal payment"}), 500
+            
+        auth_data = authorize_response.json()
+        
+        # Extract authorization ID
+        authorization_id = None
+        for purchase_unit in auth_data.get('purchase_units', []):
+            for payment in purchase_unit.get('payments', {}).get('authorizations', []):
+                authorization_id = payment.get('id')
+                break
+        
+        if not authorization_id:
+            return jsonify({"error": "No authorization ID found"}), 500
+        
+        # Update escrow - NOW it's truly funded (PayPal is holding the money)
+        updated = supabase.table('escrows').update({
+            'status': 'funded',
+            'paypal_authorization_id': authorization_id
+        }).eq('id', escrow_id).execute()
+        
+        # Record transaction
+        supabase.table('transactions').insert({
+            'escrow_id': escrow_id,
+            'type': 'deposit',
+            'amount': escrow_data['amount'],
+            'currency': escrow_data['currency'],
+            'paypal_transaction_id': authorization_id,
+            'usd_amount': escrow_data['amount']
+        }).execute()
+        
+        return jsonify({
+            "success": True,
+            "escrow": updated.data[0],
+            "message": "PayPal payment authorized - funds are now held in escrow!"
+        }), 200
+        
+    except Exception as e:
+        print(f"Error handling PayPal authorization: {e}")
+        return jsonify({"error": str(e)}), 500
+
+def capture_paypal_payment(escrow_id, authorization_id):
+    """ACTUALLY capture the authorized payment (release to seller)"""
+    try:
+        # Get escrow details
+        escrow = supabase.table('escrows').select('*').eq('id', escrow_id).single().execute()
+        if not escrow.data:
+            return False
+            
+        escrow_data = escrow.data
+        
+        # Get PayPal access token
+        auth_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v1/oauth2/token",
+            headers={
+                'Accept': 'application/json',
+                'Accept-Language': 'en_US',
+            },
+            data={'grant_type': 'client_credentials'},
+            auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET)
+        )
+        
+        if auth_response.status_code != 200:
+            return False
+        
+        access_token = auth_response.json()['access_token']
+        
+        # Capture the authorized payment
+        capture_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v2/payments/authorizations/{authorization_id}/capture",
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}',
+                'PayPal-Request-Id': str(uuid.uuid4())
+            },
+            json={
+                'amount': {
+                    'currency_code': 'USD',
+                    'value': str(escrow_data['net_amount'])  # Seller gets net amount
+                },
+                'final_capture': True,
+                'note_to_payer': 'Medius Escrow - Funds released to seller'
+            }
+        )
+        
+        if capture_response.status_code == 201:
+            print(f"✅ PayPal capture successful! Net amount: ${escrow_data['net_amount']}")
+            return True
+        else:
+            print(f"❌ PayPal capture failed: {capture_response.text}")
+            return False
+        
+    except Exception as e:
+        print(f"Error capturing PayPal payment: {e}")
+        return False
+
+def void_paypal_authorization(authorization_id):
+    """Void the authorization (automatic refund to buyer)"""
     try:
         # Get PayPal access token
         auth_response = requests.post(
@@ -968,24 +1499,33 @@ def capture_paypal_payment(order_id):
         
         access_token = auth_response.json()['access_token']
         
-        # Capture the order
-        capture_response = requests.post(
-            f"{PAYPAL_BASE_URL}/v2/checkout/orders/{order_id}/capture",
+        # Void the authorization
+        void_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v2/payments/authorizations/{authorization_id}/void",
             headers={
                 'Content-Type': 'application/json',
-                'Authorization': f'Bearer {access_token}'
+                'Authorization': f'Bearer {access_token}',
+                'PayPal-Request-Id': str(uuid.uuid4())
             }
         )
         
-        return capture_response.status_code == 201
+        return void_response.status_code == 204
         
     except Exception as e:
-        print(f"Error capturing PayPal payment: {e}")
+        print(f"Error voiding PayPal authorization: {e}")
         return False
-
-def process_paypal_refund(order_id, amount):
-    """Process PayPal refund"""
+        
+def capture_paypal_payment(escrow_id, order_id):
+    """Capture PayPal payment with automatic fee splitting"""
     try:
+        # Get escrow details for fee calculation
+        escrow = supabase.table('escrows').select('*').eq('id', escrow_id).single().execute()
+        if not escrow.data:
+            print(f"Escrow {escrow_id} not found")
+            return False
+            
+        escrow_data = escrow.data
+        
         # Get PayPal access token
         auth_response = requests.post(
             f"{PAYPAL_BASE_URL}/v1/oauth2/token",
@@ -1003,26 +1543,111 @@ def process_paypal_refund(order_id, amount):
         
         access_token = auth_response.json()['access_token']
         
-        # Process refund
-        refund_response = requests.post(
-            f"{PAYPAL_BASE_URL}/v2/payments/captures/{order_id}/refund",
+        # First, get the order details to find the authorization
+        order_response = requests.get(
+            f"{PAYPAL_BASE_URL}/v2/checkout/orders/{order_id}",
+            headers={
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json'
+            }
+        )
+        
+        if order_response.status_code != 200:
+            print(f"Failed to get order details: {order_response.text}")
+            return False
+            
+        order_data = order_response.json()
+        
+        # Find the authorization ID
+        authorization_id = None
+        for purchase_unit in order_data.get('purchase_units', []):
+            for payment in purchase_unit.get('payments', {}).get('authorizations', []):
+                if payment.get('status') == 'CREATED':
+                    authorization_id = payment.get('id')
+                    break
+        
+        if not authorization_id:
+            print("No valid authorization found")
+            return False
+        
+        # Capture the authorized payment for the seller amount (excluding platform fee)
+        capture_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v2/payments/authorizations/{authorization_id}/capture",
             headers={
                 'Content-Type': 'application/json',
-                'Authorization': f'Bearer {access_token}'
+                'Authorization': f'Bearer {access_token}',
+                'PayPal-Request-Id': str(uuid.uuid4())
             },
             json={
                 'amount': {
                     'currency_code': 'USD',
-                    'value': str(amount)
-                }
+                    'value': str(escrow_data['net_amount'])  # Seller gets net amount
+                },
+                'final_capture': True,
+                'note_to_payer': 'Escrow funds released to seller',
+                'disbursement_mode': 'INSTANT'
             }
         )
         
-        return refund_response.status_code == 201
+        print(f"Capture response: {capture_response.status_code} - {capture_response.text}")
+        
+        if capture_response.status_code == 201:
+            capture_data = capture_response.json()
+            print(f"✅ PayPal capture successful! Seller receives: ${escrow_data['net_amount']}, Platform fee: ${escrow_data['platform_fee_amount']}")
+            
+            # Record the platform fee transaction
+            supabase.table('transactions').insert({
+                'escrow_id': escrow_id,
+                'type': 'platform_fee',
+                'amount': escrow_data['platform_fee_amount'],
+                'currency': escrow_data['currency'],
+                'paypal_transaction_id': capture_data['id'],
+                'usd_amount': escrow_data['platform_fee_amount']
+            }).execute()
+            
+            return True
+        else:
+            print(f"❌ PayPal capture failed: {capture_response.text}")
+            return False
         
     except Exception as e:
-        print(f"Error processing PayPal refund: {e}")
+        print(f"Error capturing PayPal payment: {e}")
+        import traceback
+        print(traceback.format_exc())
         return False
+
+@app.route('/api/escrows/<escrow_id>/paypal-refund', methods=['POST'])
+@require_auth
+def process_paypal_cancel(escrow_id):
+    """Cancel PayPal authorization (automatic refund)"""
+    try:
+        # Get escrow
+        escrow = supabase.table('escrows').select('*').eq('id', escrow_id).single().execute()
+        if not escrow.data:
+            return jsonify({"error": "Escrow not found"}), 404
+            
+        escrow_data = escrow.data
+        paypal_data = escrow_data.get('paypal_order_id')
+        
+        if '|' in paypal_data:
+            order_id, authorization_id = paypal_data.split('|', 1)
+        else:
+            authorization_id = paypal_data
+        
+        # Void the authorization (this refunds the buyer automatically)
+        success = void_paypal_authorization(authorization_id)
+        
+        if success:
+            # Update escrow status
+            supabase.table('escrows').update({'status': 'refunded'}).eq('id', escrow_id).execute()
+            
+            return jsonify({"success": True, "message": "PayPal authorization voided - buyer refunded"}), 200
+        else:
+            return jsonify({"error": "Failed to void PayPal authorization"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/escrows/<escrow_id>/recover-and-release', methods=['POST'])
 @require_auth
 def recover_and_release(escrow_id):
@@ -1095,6 +1720,54 @@ def recover_and_release(escrow_id):
     except Exception as e:
         print(f"Recovery error: {e}")
         return jsonify({"error": str(e)}), 500
+def get_authorization_id_from_order(order_id):
+    """Get authorization ID from PayPal order"""
+    try:
+        # Get PayPal access token
+        auth_response = requests.post(
+            f"{PAYPAL_BASE_URL}/v1/oauth2/token",
+            headers={
+                'Accept': 'application/json',
+                'Accept-Language': 'en_US',
+            },
+            data={'grant_type': 'client_credentials'},
+            auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET)
+        )
+        
+        if auth_response.status_code != 200:
+            return None
+        
+        access_token = auth_response.json()['access_token']
+        
+        # Get order details
+        order_response = requests.get(
+            f"{PAYPAL_BASE_URL}/v2/checkout/orders/{order_id}",
+            headers={
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json'
+            }
+        )
+        
+        if order_response.status_code != 200:
+            print(f"Failed to get order details: {order_response.text}")
+            return None
+            
+        order_data = order_response.json()
+        print(f"🔍 Order data: {order_data}")
+        
+        # Look for authorization ID in the order
+        for purchase_unit in order_data.get('purchase_units', []):
+            for payment in purchase_unit.get('payments', {}).get('authorizations', []):
+                auth_id = payment.get('id')
+                print(f"🔍 Found authorization ID: {auth_id}")
+                return auth_id
+        
+        print("❌ No authorization found in order")
+        return None
+        
+    except Exception as e:
+        print(f"Error getting authorization ID: {e}")
+        return None
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

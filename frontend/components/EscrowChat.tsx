@@ -12,6 +12,7 @@ interface EscrowChatProps {
   sellerProfile: any
   onSellerAddressSubmit: (address: string) => void
   onAmountConfirmed: () => void
+  onSellerPaypalEmailSubmit?: (email: string) => void // new optional prop
 }
 
 export default function EscrowChat({
@@ -21,6 +22,7 @@ export default function EscrowChat({
   sellerProfile,
   onSellerAddressSubmit,
   onAmountConfirmed,
+  onSellerPaypalEmailSubmit,
 }: EscrowChatProps) {
   const [messages, setMessages] = useState<any[]>([])
   const [newMessage, setNewMessage] = useState("")
@@ -31,6 +33,8 @@ export default function EscrowChat({
   const [showBuyerAddressInput, setShowBuyerAddressInput] = useState(false)
   const [processingRefund, setProcessingRefund] = useState(false)
   const chatRef = useRef<HTMLDivElement>(null)
+  const [sellerPaypalEmail, setSellerPaypalEmail] = useState("")
+  const [paypalEmailLoading, setPaypalEmailLoading] = useState(false)
 
   const isBuyer = currentUserId === escrow.buyer_id
   const isSeller = currentUserId === escrow.seller_id
@@ -315,6 +319,29 @@ export default function EscrowChat({
     }
   }
 
+  const handlePaypalEmailSubmit = async () => {
+    try {
+      setPaypalEmailLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/paypal-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ paypal_email: sellerPaypalEmail })
+      })
+      if (response.ok) {
+        onSellerPaypalEmailSubmit?.(sellerPaypalEmail)
+        setSellerPaypalEmail("")
+      }
+    } catch (error) {
+      console.error("Error saving PayPal email:", error)
+    } finally {
+      setPaypalEmailLoading(false)
+    }
+  }
+
   const getSenderName = (senderId: string) => {
     if (senderId === escrow.buyer_id) return buyerProfile?.username || "Buyer"
     if (senderId === escrow.seller_id) return sellerProfile?.username || "Seller"
@@ -540,6 +567,33 @@ export default function EscrowChat({
                 className="backdrop-blur-sm bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 border border-blue-400/30 hover:border-blue-400/50 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300 shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 hover:scale-105 transform ease-out"
               >
                 ✓ Confirm Amount
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* PayPal seller email prompt */}
+        {escrow.payment_method === 'paypal' && isSeller && escrow.status === 'funded' && !escrow.seller_paypal_email && (
+          <div className="bg-blue-500/10 border border-blue-400/20 rounded-2xl p-4 mb-4 animate-slide-in-up">
+            <h4 className="text-blue-300 font-semibold mb-2">PayPal Email Required</h4>
+            <p className="text-blue-200/80 text-sm mb-3">
+              Please provide your PayPal email address to receive funds when the buyer releases payment.
+            </p>
+            <div className="flex space-x-2">
+              <input
+                type="email"
+                value={sellerPaypalEmail}
+                onChange={(e) => setSellerPaypalEmail(e.target.value)}
+                placeholder="your-paypal@email.com"
+                className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400"
+                disabled={paypalEmailLoading}
+              />
+              <button
+                onClick={handlePaypalEmailSubmit}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white disabled:opacity-50"
+                disabled={paypalEmailLoading || !sellerPaypalEmail.trim()}
+              >
+                {paypalEmailLoading ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>

@@ -1,5 +1,4 @@
 "use client"
-
 import type React from "react"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
@@ -201,7 +200,6 @@ export default function CreateEscrow() {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-
       if (!session) {
         throw new Error("Not authenticated")
       }
@@ -260,7 +258,6 @@ export default function CreateEscrow() {
     }
 
     setLoadingFees(true)
-
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calculate-fee`, {
         method: 'POST',
@@ -371,21 +368,29 @@ export default function CreateEscrow() {
                       <div className="text-xs text-gray-400 mt-2">Bitcoin, Ethereum, Litecoin, and more</div>
                     </div>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("paypal")}
-                    className={`p-6 rounded-2xl border-2 transition-all duration-300 ease-out hover:scale-105 transform ${
-                      paymentMethod === "paypal"
-                        ? "border-orange-500 bg-orange-500/10 text-orange-300 shadow-lg shadow-orange-500/20"
-                        : "border-white/20 bg-white/5 text-gray-300 hover:border-white/30 hover:bg-white/10"
-                    }`}
-                  >
-                    <div className="text-center">
-                      <div className="text-3xl mb-3">💳</div>
-                      <div className="font-semibold text-lg">PayPal</div>
-                      <div className="text-xs text-gray-400 mt-2">Traditional payment</div>
+                  
+                  {/* PayPal button - disabled with coming soon overlay */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      disabled
+                      className="p-6 rounded-2xl border-2 border-gray-600/50 bg-gray-800/30 text-gray-500 cursor-not-allowed w-full transition-none"
+                    >
+                      <div className="text-center">
+                        <div className="text-3xl mb-3 opacity-50">💳</div>
+                        <div className="font-semibold text-lg">PayPal</div>
+                        <div className="text-xs text-gray-500 mt-2">Traditional payment</div>
+                      </div>
+                    </button>
+                    
+                    {/* Coming Soon Badge */}
+                    <div className="absolute -top-2 -right-2 bg-black border border-gray-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                      <span className="flex items-center space-x-1">
+                        <span>🚀</span>
+                        <span>COMING SOON</span>
+                      </span>
                     </div>
-                  </button>
+                  </div>
                 </div>
               </div>
 
@@ -464,10 +469,10 @@ export default function CreateEscrow() {
                         {/* Fee explanation */}
                         <div className="mt-3 p-2 bg-blue-500/10 rounded-lg">
                           <p className="text-xs text-blue-300/80">
-                            {paymentMethod === 'paypal' 
-                              ? "PayPal transactions: 3% platform fee"
-                              : feeInfo.total_amount < 50 
-                                ? "Crypto under $50: 2% platform fee" 
+                            {paymentMethod === 'paypal'
+                              ? "PayPal transactions: 2% platform fee"
+                              : feeInfo.total_amount < 50
+                                ? "Crypto under $50: 2% platform fee"
                                 : "Crypto over $50: 1.5% platform fee"
                             }
                           </p>
@@ -558,7 +563,7 @@ export default function CreateEscrow() {
                   </li>
                   <li className="flex items-start space-x-2 animate-fade-in" style={{ animationDelay: "0.8s" }}>
                     <span className="text-orange-400 mt-0.5">•</span>
-                    <span>Platform fee: 2% crypto under $50, 1.5% over $50, 3% PayPal</span>
+                    <span>Platform fee: 2% crypto under $50, 1.5% over $50, 2% PayPal</span>
                   </li>
                   <li className="flex items-start space-x-2 animate-fade-in" style={{ animationDelay: "0.9s" }}>
                     <span className="text-orange-400 mt-0.5">•</span>
@@ -603,10 +608,10 @@ export default function CreateEscrow() {
                   )}
                 </div>
               </button>
-              </form>
-           </div>
-         </div>
-       </div>
-     </div>
-   );
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

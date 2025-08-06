@@ -3,6 +3,9 @@
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.53.0",
-    "jest": "^30.0.5"
+    "clsx": "^2.1.1",
+    "jest": "^30.0.5",
+    "motion": "^12.23.12",
+    "tailwind-merge": "^3.3.1"
   }
 }
