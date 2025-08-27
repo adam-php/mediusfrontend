@@ -15,6 +15,7 @@ export default function AuthPage() {
   const searchParams = useSearchParams()
   const initialMode = (searchParams.get("mode") as Mode) || "signup"
   const [mode, setMode] = useState<Mode>(initialMode)
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
@@ -28,11 +29,34 @@ export default function AuthPage() {
 
   const callbackUrl = useMemo(() => `${window.location.origin}/auth/callback`, [])
 
+  // Attempt auto-claim if session already exists, then redirect
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace("/dashboard")
-    })
-  }, [router])
+    const run = async () => {
+      const { data } = await supabase.auth.getSession()
+      const session = data.session
+      if (!session) return
+
+      try {
+        const codeFromUrl = searchParams.get("ref")?.trim() || ""
+        const codeFromStorage = typeof window !== "undefined" ? (localStorage.getItem("medius_ref_code") || "") : ""
+        const code = (codeFromUrl || codeFromStorage || "").trim()
+        if (code) {
+          await fetch(`${API_URL}/api/referrals/claim`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ code })
+          }).catch(() => {})
+        }
+      } finally {
+        try { if (typeof window !== "undefined") localStorage.removeItem("medius_ref_code") } catch {}
+        router.replace("/dashboard")
+      }
+    }
+    run()
+  }, [router, searchParams, API_URL])
 
   useEffect(() => {
     if (mode !== "signup") return
@@ -78,6 +102,22 @@ export default function AuthPage() {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
+        // After sign-in, auto-claim if a referral code is present
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          const codeFromUrl = searchParams.get("ref")?.trim() || ""
+          const codeFromStorage = typeof window !== "undefined" ? (localStorage.getItem("medius_ref_code") || "") : ""
+          const code = (codeFromUrl || codeFromStorage || "").trim()
+          if (session && code) {
+            await fetch(`${API_URL}/api/referrals/claim`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+              body: JSON.stringify({ code })
+            }).catch(() => {})
+          }
+        } finally {
+          try { if (typeof window !== "undefined") localStorage.removeItem("medius_ref_code") } catch {}
+        }
         router.replace("/dashboard")
       } else {
         const uname = username.trim().toLowerCase()
@@ -117,6 +157,21 @@ export default function AuthPage() {
         if (!data.session) {
           setMessage("Check your email to confirm your account.")
         } else {
+          // After sign-up (when session exists), auto-claim before redirect
+          try {
+            const codeFromUrl = searchParams.get("ref")?.trim() || ""
+            const codeFromStorage = typeof window !== "undefined" ? (localStorage.getItem("medius_ref_code") || "") : ""
+            const code = (codeFromUrl || codeFromStorage || "").trim()
+            if (code) {
+              await fetch(`${API_URL}/api/referrals/claim`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+                body: JSON.stringify({ code })
+              }).catch(() => {})
+            }
+          } finally {
+            try { if (typeof window !== "undefined") localStorage.removeItem("medius_ref_code") } catch {}
+          }
           router.replace("/dashboard")
         }
       }

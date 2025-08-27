@@ -420,8 +420,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 relative overflow-hidden flex items-center justify-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-transparent to-orange-600/10"></div>
+      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
         <div className="flex items-center space-x-3 text-white relative z-10">
           <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
           <span className="text-lg">Loading your escrows...</span>
@@ -431,12 +430,23 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 relative overflow-hidden">
-      <div
-        className="absolute inset-0 -z-10"
+    <div className="min-h-screen bg-black relative overflow-hidden">
+      <motion.div
+        initial={{ x: -24, y: -24, opacity: 0 }}
+        animate={{ x: 0, y: 0, opacity: 1 }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        className="absolute top-0 left-0 -z-10 rounded-2xl overflow-hidden pointer-events-none mix-blend-screen"
         style={{
+          // Square sized to fit within the top-left quarter on all screens
+          width: "min(50vw, 50vh)",
+          height: "min(50vw, 50vh)",
           background:
-            "radial-gradient(10% 10% at 18% 12%, rgba(251,146,60,0.26) 0%, rgba(251,146,60,0.00) 25%), radial-gradient(12% 12% at 85% 88%, rgba(251,146,60,0.22) 0%, rgba(251,146,60,0.00) 40%), linear-gradient(135deg, rgba(251,146,60,0.16) 0%, rgba(251,146,60,0.10) 30%, rgba(251,146,60,0.00) 65%)",
+            // Hotspot for extra brightness near the corner
+            "radial-gradient(28% 28% at 18% 14%, rgba(255,180,110,0.78) 0%, rgba(255,180,110,0.00) 60%), " +
+            // Main soft glow
+            "radial-gradient(70% 70% at 25% 20%, rgba(251,146,60,0.62) 0%, rgba(251,146,60,0.00) 62%), " +
+            // Subtle directional wash
+            "linear-gradient(135deg, rgba(251,146,60,0.34) 0%, rgba(251,146,60,0.00) 70%)",
         }}
       />
 
@@ -637,7 +647,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 border border-white/20 text-white"
+                className="lg:hidden inline-flex items-center justify-center w-12 h-20 bg-black text-white rounded-xl border border-white/20"
                 onClick={() => setMobileNavOpen(true)}
                 aria-label="Open menu"
               >
@@ -792,7 +802,7 @@ export default function Dashboard() {
                   <motion.div whileHover={{ scale: 1.03 }}>
                     <Link
                       href="/create-escrow"
-                      className="inline-flex items-center justify-center space-x-2 w-full sm:w-auto px-5 sm:px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-medium hover:scale-105 transition-transform duration-200"
+                      className="inline-flex items-center justify-center space-x-2 w-full sm:w-auto px-5 sm:px-6 py-3 bg-[#FF7A00] hover:bg-[#FF7A00] text-white rounded-xl font-medium hover:scale-105 transition-transform duration-200"
                     >
                       <span>{"Create Your First Escrow"}</span>
                       <span>{"→"}</span>
@@ -823,7 +833,7 @@ export default function Dashboard() {
                   </div>
                   <Link
                     href="/create-escrow"
-                    className="sm:hidden inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-medium"
+                    className="sm:hidden inline-flex items-center justify-center px-4 py-2 bg-[#FF7A00] hover:bg-[#FF7A00] text-white rounded-lg font-medium"
                   >
                     {"+ New"}
                   </Link>

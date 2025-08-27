@@ -385,7 +385,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
             <div className="backdrop-blur-sm bg-red-500/10 border border-red-400/20 text-red-300 px-4 py-3 rounded-2xl mb-6">
               {error}
             </div>
-            <AnimatedBackButton onClick={() => router.push("/dashboard")} text="Back to Dashboard" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200" />
+            <AnimatedBackButton onClick={() => router.push("/dashboard")} text="Back to Dashboard" className="bg-[#FF7A00] hover:bg-[#FF7A00] text-white px-6 py-3 rounded-lg font-medium transition-all duration-200" />
           </div>
         </div>
       </div>

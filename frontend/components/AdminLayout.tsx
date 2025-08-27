@@ -39,6 +39,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           const profRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me`, {
             headers: { Authorization: `Bearer ${token}` },
             credentials: "include",
+            cache: 'no-store',
           })
           if (cancelled) return
           if (profRes.ok) {
@@ -51,6 +52,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             const over = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview`, {
               headers: { Authorization: `Bearer ${token}` },
               credentials: "include",
+              cache: 'no-store',
             })
             setIsAdmin(over.status === 200)
           } else {
@@ -58,6 +60,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             const acc = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/access-check`, {
               headers: { Authorization: `Bearer ${token}` },
               credentials: "include",
+              cache: 'no-store',
             })
             if (acc.status === 200) {
               setIsAdmin(true)
@@ -65,6 +68,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               const over = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview`, {
                 headers: { Authorization: `Bearer ${token}` },
                 credentials: "include",
+                cache: 'no-store',
               })
               setIsAdmin(over.status === 200)
             }

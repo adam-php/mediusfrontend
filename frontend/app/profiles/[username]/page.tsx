@@ -1,24 +1,22 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { Check } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 
-export default function PublicProfilePage({ params }: { params: Promise<{ username: string }> }) {
+export default function PublicProfilePage({ params }: { params: { username: string } }) {
   const router = useRouter()
-  const [username, setUsername] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [profile, setProfile] = useState<any>(null)
-  const [friends, setFriends] = useState<any[]>([])
+  const [imageError, setImageError] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [blocking, setBlocking] = useState(false)
+  const [blocked, setBlocked] = useState(false)
 
   useEffect(() => {
-    (async () => {
-      const p = await params
-      setUsername(p.username)
-    })()
-  }, [params])
-
-  useEffect(() => {
+    const username = params?.username
     if (!username) return
     ;(async () => {
       try {
@@ -28,28 +26,89 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
         const data = await res.json()
         setProfile(data)
 
-        const fr = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(username)}/friends`)
-        const frData = fr.ok ? await fr.json() : []
-        setFriends(frData || [])
+        // Friends feature removed
       } catch (e: any) {
         setError(e.message)
       } finally {
         setLoading(false)
       }
     })()
-  }, [username])
+  }, [params?.username])
 
   const publicUrl = useMemo(() => {
     if (typeof window === "undefined" || !profile?.username) return ""
     return `${window.location.origin}/profiles/${profile.username}`
   }, [profile?.username])
 
+  const memberSince = useMemo(() => {
+    if (!profile?.created_at) return ""
+    try {
+      const d = new Date(profile.created_at)
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short' })
+    } catch { return "" }
+  }, [profile?.created_at])
+
+  const initials = useMemo(() => {
+    const source = (profile?.display_name || profile?.username || "").trim()
+    if (!source) return ""
+    const parts = source.split(/\s+/).slice(0, 2)
+    return parts.map((p: string) => p[0]?.toUpperCase()).join("")
+  }, [profile?.display_name, profile?.username])
+
+  const showImage = Boolean(profile?.avatar_url && !imageError)
+
   const copy = async (text: string) => {
-    try { await navigator.clipboard.writeText(text) } catch {}
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {}
   }
 
-  const startEscrow = (role: "buyer" | "seller") => {
-    router.push(`/create-escrow?role=${role}&to=${profile.username}`)
+  const BlockButton = ({ username, className = "" }: { username: string, className?: string }) => {
+    const onBlock = async () => {
+      if (!confirm(`Block @${username}? They won't be able to interact with you.`)) return
+      try {
+        setBlocking(true)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          window.location.href = "/auth"
+          return
+        }
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(username)}/block`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ action: 'block' })
+        })
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}))
+          throw new Error(j.error || 'Failed to block user')
+        }
+        setBlocked(true)
+      } catch (e) {
+        alert((e as any)?.message || 'Failed to block user')
+      } finally {
+        setBlocking(false)
+      }
+    }
+
+    return (
+      <button
+        onClick={onBlock}
+        disabled={blocking || blocked}
+        className={`${className} rounded-2xl px-4 py-3 text-sm font-medium transition-colors border ${
+          blocked
+            ? 'bg-red-500/20 border-red-500/40 text-red-300'
+            : 'bg-white/10 border-white/20 text-gray-300 hover:bg-white/15'
+        } disabled:opacity-60`}
+      >
+        {blocked ? 'Blocked' : (blocking ? 'Blocking…' : 'Block')}
+      </button>
+    )
+  }
+
+  const startEscrow = () => {
+    router.push(`/create-escrow?to=${profile.username}`)
   }
 
   if (loading) {
@@ -79,69 +138,68 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
       <div className="max-w-3xl mx-auto px-4 py-10 space-y-8">
         <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-white/10">
-              {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-2xl">👤</div>
-              )}
-            </div>
-            <div>
-              <div className="text-2xl font-bold">@{profile.username}</div>
-              {profile.display_name && (
-                <div className="text-gray-300">{profile.display_name}</div>
-              )}
-              {profile.bio && <div className="text-sm text-gray-400 mt-1">{profile.bio}</div>}
-            </div>
-          </div>
-
-          <div className="mt-6 flex gap-3">
-            <button
-              onClick={() => startEscrow("buyer")}
-              className="rounded-2xl bg-gradient-to-r from-orange-500/80 to-amber-500/80 px-6 py-3 font-semibold hover:from-orange-500 hover:to-amber-500"
-            >
-              Create Escrow (I’m the buyer)
-            </button>
-            <button
-              onClick={() => startEscrow("seller")}
-              className="rounded-2xl bg-white/10 border border-white/20 px-6 py-3 font-semibold hover:bg-white/15"
-            >
-              Create Escrow (I’m the seller)
-            </button>
-            <button
-              onClick={() => publicUrl && copy(publicUrl)}
-              className="ml-auto rounded-2xl bg-white/10 border border-white/20 px-4 py-3 hover:bg-white/15"
-            >
-              Copy Profile URL
-            </button>
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">Friends</h2>
-            <div className="text-sm text-gray-400">{friends.length} total</div>
-          </div>
-          {friends.length === 0 ? (
-            <div className="text-gray-400 text-sm mt-2">No friends to show.</div>
-          ) : (
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {friends.map((f) => (
-                <a key={f.id} href={`/profiles/${f.username}`} className="rounded-xl border border-white/15 bg-white/5 p-3 hover:bg-white/10">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full overflow-hidden bg-white/10 flex items-center justify-center">
-                      {f.avatar_url ? <img src={f.avatar_url} className="w-full h-full object-cover" /> : <span>👤</span>}
-                    </div>
-                    <div>
-                      <div className="font-semibold">@{f.username}</div>
-                      {f.display_name && <div className="text-xs text-gray-400">{f.display_name}</div>}
-                    </div>
+            <div className="relative">
+              <div className="w-28 h-28 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-xl border border-white/10 shadow-sm">
+                {showImage ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <div className="w-full h-full grid place-items-center bg-gradient-to-br from-zinc-800 to-zinc-700 text-white/90">
+                    <span>{initials || "👤"}</span>
                   </div>
-                </a>
-              ))}
+                )}
+              </div>
             </div>
-          )}
+
+            <div className="flex-1">
+              <div className="text-lg font-semibold">{profile.display_name ?? "Unnamed"}</div>
+              <div className="text-sm text-gray-400 mt-1">@{profile.username}</div>
+              {memberSince && (
+                <div className="text-xs text-gray-500 mt-2">Member since {memberSince}</div>
+              )}
+              {profile.bio && <div className="text-sm text-gray-400 mt-3">{profile.bio}</div>}
+            </div>
+          </div>
+
+          <div className="mt-6 flex gap-3 items-center">
+            <button
+              onClick={startEscrow}
+              className="rounded-2xl bg-[#FF7A00] hover:bg-[#FF7A00] px-6 py-3 font-semibold text-white shadow-lg shadow-orange-500/20"
+            >
+              Create Escrow
+            </button>
+            <BlockButton username={profile.username} className="ml-auto" />
+          </div>
         </div>
+
+        {/* Deal stats */}
+        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+          <div className="text-sm text-gray-300 mb-2">Deal stats</div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs text-gray-400">Completed escrows</div>
+              <div className="mt-1 text-xl font-semibold">{profile?.stats?.completed ?? 0}</div>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs text-gray-400">Active escrows</div>
+              <div className="mt-1 text-xl font-semibold">{profile?.stats?.active ?? 0}</div>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs text-gray-400">Total escrows</div>
+              <div className="mt-1 text-xl font-semibold">{profile?.stats?.total ?? 0}</div>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs text-gray-400">Total completed volume (USD)</div>
+              <div className="mt-1 text-xl font-semibold">${((profile?.stats?.volume_usd ?? 0) as number).toLocaleString('en-US')}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Friends section removed */}
       </div>
     </div>
   )

@@ -443,17 +443,20 @@ export default function EscrowChat({
 
   const getSenderAvatar = (senderId: string) => {
     let email = ""
+    let avatarUrl = ""
     let bgGradient = ""
     let borderColor = ""
     let shadowColor = ""
 
     if (senderId === escrow.buyer_id) {
       email = buyerProfile?.email || buyerProfile?.username || "B"
+      avatarUrl = buyerProfile?.avatar_url || ""
       bgGradient = "from-blue-500/20 to-blue-600/20"
       borderColor = "border-blue-400/30"
       shadowColor = "shadow-blue-500/20"
     } else if (senderId === escrow.seller_id) {
       email = sellerProfile?.email || sellerProfile?.username || "S"
+      avatarUrl = sellerProfile?.avatar_url || ""
       bgGradient = "from-orange-500/20 to-amber-500/20"
       borderColor = "border-orange-400/30"
       shadowColor = "shadow-orange-500/20"
@@ -468,13 +471,22 @@ export default function EscrowChat({
 
     return (
       <div
-        className={`w-10 h-10 bg-gradient-to-br ${bgGradient} backdrop-blur-sm border ${borderColor} rounded-full flex items-center justify-center shadow-lg ${shadowColor} md:hover:scale-110 active:scale-95 transition-all duration-300`}
+        className={`w-10 h-10 bg-gradient-to-br ${bgGradient} backdrop-blur-sm border ${borderColor} rounded-full flex items-center justify-center shadow-lg ${shadowColor} md:hover:scale-110 active:scale-95 transition-all duration-300 overflow-hidden`}
       >
-        <span
-          className={`font-bold text-sm ${senderId === escrow.buyer_id ? "text-blue-400" : senderId === escrow.seller_id ? "text-orange-400" : "text-gray-400"}`}
-        >
-          {firstLetter}
-        </span>
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={getSenderName(senderId)}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <span
+            className={`font-bold text-sm ${senderId === escrow.buyer_id ? "text-blue-400" : senderId === escrow.seller_id ? "text-orange-400" : "text-gray-400"}`}
+          >
+            {firstLetter}
+          </span>
+        )}
       </div>
     )
   }
@@ -596,7 +608,7 @@ export default function EscrowChat({
               <button
                 type="button"
                 onClick={handleAddressSubmit}
-                className="w-full sm:w-auto backdrop-blur-sm bg-gradient-to-r from-orange-500/20 to-amber-500/20 hover:from-orange-500/30 hover:to-amber-500/30 border border-orange-400/30 hover:border-orange-400/50 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20 md:hover:scale-105 active:scale-[0.99] transform ease-out"
+                className="w-full sm:w-auto backdrop-blur-sm bg-[#FF7A00] hover:bg-[#FF7A00] border border-orange-400/30 hover:border-orange-400/50 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20 md:hover:scale-105 active:scale-[0.99] transform ease-out"
               >
                 Submit
               </button>
@@ -626,7 +638,7 @@ export default function EscrowChat({
                 <button
                   type="button"
                   onClick={handleBuyerAddressSubmit}
-                  className="w-full sm:w-auto backdrop-blur-sm bg-gradient-to-r from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30 border border-red-400/30 hover:border-red-400/50 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300 shadow-lg shadow-red-500/10 hover:shadow-red-500/20 md:hover:scale-105 active:scale-[0.99] transform ease-out"
+                  className="w-full sm:w-auto backdrop-blur-sm bg-[#FF7A00] hover:bg-[#FF7A00] border border-orange-400/30 hover:border-orange-400/50 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20 md:hover:scale-105 active:scale-[0.99] transform ease-out"
                 >
                   Submit
                 </button>
@@ -637,7 +649,7 @@ export default function EscrowChat({
                   type="button"
                   onClick={handleProcessRefund}
                   disabled={processingRefund}
-                  className="w-full backdrop-blur-sm bg-gradient-to-r from-orange-500/20 to-red-500/20 hover:from-orange-500/30 hover:to-red-500/30 border border-orange-400/30 hover:border-red-400/50 text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-300 shadow-lg shadow-orange-500/10 hover:shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed md:hover:scale-105 active:scale-[0.99] transform ease-out"
+                  className="w-full backdrop-blur-sm bg-[#FF7A00] hover:bg-[#FF7A00] border border-orange-400/30 hover:border-orange-400/50 text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-300 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed md:hover:scale-105 active:scale-[0.99] transform ease-out"
                 >
                   {processingRefund ? (
                     <div className="flex items-center justify-center">
@@ -669,7 +681,7 @@ export default function EscrowChat({
               <button
                 type="button"
                 onClick={handleAmountConfirmation}
-                className="w-full sm:w-auto backdrop-blur-sm bg-gradient-to-r from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 border border-blue-400/30 hover:border-blue-400/50 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300 shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 md:hover:scale-105 active:scale-[0.99] transform ease-out"
+                className="w-full sm:w-auto backdrop-blur-sm bg-[#FF7A00] hover:bg-[#FF7A00] border border-orange-400/30 hover:border-orange-400/50 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20 md:hover:scale-105 active:scale-[0.99] transform ease-out"
               >
                 ✓ Confirm Amount
               </button>
@@ -725,9 +737,8 @@ export default function EscrowChat({
           <button
             type="submit"
             disabled={!newMessage.trim()}
-            className="w-full sm:w-auto backdrop-blur-sm bg-gradient-to-r from-orange-500/20 to-amber-500/20 hover:from-orange-500/30 hover:to-amber-500/30 border border-orange-400/30 hover:border-orange-400/50 text-white px-6 py-4 rounded-2xl font-semibold transition-all duration-300 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed md:hover:scale-105 active:scale-[0.99] transform ease-out relative overflow-hidden group"
+            className="w-full sm:w-auto backdrop-blur-sm bg-[#FF7A00] hover:bg-[#FF7A00] border border-orange-400/30 hover:border-orange-400/50 text-white px-6 py-4 rounded-2xl font-semibold transition-all duration-300 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed md:hover:scale-105 active:scale-[0.99] transform ease-out relative overflow-hidden"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-orange-400/20 to-amber-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             <span className="relative z-10">Send</span>
             <span className="relative z-10 group-hover:translate-x-1 transition-transform duration-300">→</span>
           </button>

@@ -95,3 +95,14 @@ html {
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Ensure all interactive buttons show a hand cursor */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}

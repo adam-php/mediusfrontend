@@ -103,7 +103,7 @@ export default function TransactionOverlay({
             <div className="space-y-1">
               <p className="text-gray-400 text-sm">Buyer</p>
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-[#FF7A00] rounded-full flex items-center justify-center">
                   <span className="text-white font-bold text-sm">B</span>
                 </div>
                 <p className="text-white text-lg font-medium">
@@ -116,7 +116,7 @@ export default function TransactionOverlay({
             <div className="space-y-1">
               <p className="text-gray-400 text-sm">Seller</p>
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-[#FF7A00] rounded-full flex items-center justify-center">
                   <span className="text-white font-bold text-sm">S</span>
                 </div>
                 <p className="text-white text-lg font-medium">
@@ -142,7 +142,7 @@ export default function TransactionOverlay({
                 <div className="flex items-center space-x-2">
                   <div className="w-32 bg-gray-800 rounded-full h-2">
                     <div 
-                      className="bg-gradient-to-r from-orange-500 to-amber-500 h-2 rounded-full transition-all duration-500"
+                      className="bg-[#FF7A00] h-2 rounded-full transition-all duration-500"
                       style={{ width: `${Math.min((escrow.confirmations || 0) * 33.33, 100)}%` }}
                     />
                   </div>

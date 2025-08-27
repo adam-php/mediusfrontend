@@ -66,18 +66,19 @@ export default function ReferralsPage() {
   const [currLoading, setCurrLoading] = useState(false)
 
   const payoutCurrencyOptions = useMemo(() => {
-    // Filter out currencies you don't pay out on (TRX, USDT-TRON not implemented)
-    const disallowed = new Set(["TRX", "USDT-TRON"])
-    const filtered = (currencies || []).filter((c) => !disallowed.has(c.code))
+    const list = Array.isArray(currencies) ? currencies : []
     // Fallback if API fails
-    if (filtered.length === 0) {
+    if (list.length === 0) {
       return [
+        { code: "USD", name: "PayPal" },
         { code: "BTC", name: "Bitcoin" },
         { code: "ETH", name: "Ethereum" },
         { code: "LTC", name: "Litecoin" },
+        { code: "TRX", name: "Tron" },
+        { code: "USDT-TRON", name: "Tether (USDT) — TRC20 (Tron)" },
       ]
     }
-    return filtered
+    return list
   }, [currencies])
 
   // Generate referral link client-side if not provided by backend
@@ -89,8 +90,8 @@ export default function ReferralsPage() {
     const code = summary?.referral_code?.trim()
     if (code) {
       const baseUrl = SITE_URL || (typeof window !== "undefined" ? window.location.origin : "")
-      // Change this path to match your actual signup/ref route
-      return `${baseUrl}/signup?ref=${code}`
+      // Route referrals through the auth page which supports ?ref
+      return `${baseUrl}/auth?ref=${code}`
       // Or if you have a dedicated ref route: `${baseUrl}/ref/${code}`
     }
     return ""
@@ -193,7 +194,7 @@ export default function ReferralsPage() {
     try {
       const amt = Number.parseFloat(amountUsd)
       if (!amt || Number.isNaN(amt)) { setWdError("Enter a valid USD amount"); return }
-      if (amt < 5) { setWdError("Minimum withdrawal is $5"); return }
+      if (amt < 1) { setWdError("Minimum withdrawal is $1"); return }
       if (summary?.balance_usd != null && amt > Number(summary.balance_usd)) {
         setWdError("Insufficient referral balance")
         return
@@ -270,7 +271,7 @@ export default function ReferralsPage() {
   const withdrawDisabled =
     withdrawing ||
     !withdrawAmountNumber ||
-    withdrawAmountNumber < 5 ||
+    withdrawAmountNumber < 1 ||
     (summary?.balance_usd != null && withdrawAmountNumber > Number(summary.balance_usd)) ||
     !toAddress || toAddress.trim().length < 10
 
@@ -321,7 +322,7 @@ export default function ReferralsPage() {
               <button
                 onClick={claim}
                 disabled={claimLoading || !claimCode.trim()}
-                className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 px-5 py-3 font-semibold disabled:opacity-50"
+                className="rounded-xl bg-[#FF7A00] hover:bg-[#FF7A00] text-white px-5 py-3 font-semibold disabled:opacity-50"
               >
                 {claimLoading ? "Claiming…" : "Claim"}
               </button>
@@ -345,11 +346,11 @@ export default function ReferralsPage() {
 
           {/* Withdraw */}
           <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
-            <div className="text-sm text-gray-300 mb-2">Withdraw (min $5)</div>
+            <div className="text-sm text-gray-300 mb-2">Withdraw (min $1)</div>
             <div className="grid gap-3 sm:grid-cols-[1fr,180px,1fr]">
               <input
                 type="number"
-                min={5}
+                min={1}
                 step="0.01"
                 placeholder="Amount (USD)"
                 value={amountUsd}
@@ -362,7 +363,7 @@ export default function ReferralsPage() {
                 className="rounded-xl bg-white/10 px-4 py-3 border border-white/20 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
               >
                 {payoutCurrencyOptions.map((c) => (
-                  <option key={c.code} value={c.code}>{c.code}</option>
+                  <option key={c.code} value={c.code} disabled={c.code === "USD"}>{c.code}</option>
                 ))}
               </select>
               <input
@@ -376,7 +377,7 @@ export default function ReferralsPage() {
               <button
                 onClick={withdraw}
                 disabled={withdrawDisabled}
-                className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-3 font-semibold disabled:opacity-50"
+                className="rounded-xl bg-[#FF7A00] hover:bg-[#FF7A00] text-white px-6 py-3 font-semibold disabled:opacity-50"
               >
                 {withdrawing ? "Processing…" : "Withdraw"}
               </button>
@@ -391,9 +392,7 @@ export default function ReferralsPage() {
             {currLoading && (
               <div className="text-xs text-gray-400 mt-2">Loading payout currencies…</div>
             )}
-            <div className="text-xs text-gray-500 mt-2">
-              Note: TRON/TRC20 payouts are currently unavailable.
-            </div>
+            <div className="text-xs text-gray-500 mt-2">Note: USD withdrawals are not supported. Use a crypto network; ensure the address/network matches (TRON/TRC20 supported).</div>
           </div>
 
           {/* Commission entries */}

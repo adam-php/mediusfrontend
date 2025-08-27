@@ -1058,7 +1058,7 @@ export default function CreateEscrow() {
                       (currentStep === 2 && !canProceedFromStep2()) ||
                       (currentStep === 3 && !canProceedFromStep3())
                     }
-                    className={`px-6 py-3 bg-gradient-to-r from-orange-500/80 to-amber-500/80 hover:from-orange-500 hover:to-amber-500 backdrop-blur-sm border border-orange-400/30 text-white font-semibold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 md:hover:scale-[1.02] active:scale-[0.99] transform ease-out ${currentStep === 1 ? 'ml-auto' : ''}`}
+                    className={`px-6 py-3 bg-[#FF7A00] hover:bg-[#FF7A00] backdrop-blur-sm border border-orange-400/30 text-white font-semibold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 md:hover:scale-[1.02] active:scale-[0.99] transform ease-out ${currentStep === 1 ? 'ml-auto' : ''}`}
                   >
                     <div className="flex items-center space-x-2">
                       <span>Continue</span>
@@ -1073,13 +1073,11 @@ export default function CreateEscrow() {
                       !canSubmit() ||
                       (paymentMethod === "crypto" && !selectedPrice)
                     }
-                    className={`px-6 py-3 bg-gradient-to-r from-orange-500/80 to-amber-500/80 hover:from-orange-500 hover:to-amber-500 backdrop-blur-sm border border-orange-400/30 text-white font-semibold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 md:hover:scale-[1.02] active:scale-[0.99] transform ease-out group relative overflow-hidden ${
+                    className={`px-6 py-3 bg-[#FF7A00] hover:bg-[#FF7A00] backdrop-blur-sm border border-orange-400/30 text-white font-semibold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 md:hover:scale-[1.02] active:scale-[0.99] transform ease-out group relative overflow-hidden ${
                       isGlitching ? 'animate-bounce' : ''
                     }`}
                   >
-                    {/* Animated background effects */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 transform -skew-x-12 group-hover:animate-pulse"></div>
-                    <div className="absolute inset-0 bg-gradient-to-r from-orange-400/0 via-orange-400/20 to-orange-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    {/* Animated background effects removed for solid button */}
                     <div className="flex items-center space-x-2">
                       {loading ? (
                         <>

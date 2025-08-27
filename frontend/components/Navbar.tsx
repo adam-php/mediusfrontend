@@ -24,7 +24,9 @@ export default function Navbar() {
       }
     }
     boot()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Ignore token refresh events to avoid duplicate fetches
+      if (event === 'TOKEN_REFRESHED') return
       setUser(session?.user ?? null)
       const token = session?.access_token ?? null
       if (token) {
@@ -46,6 +48,8 @@ export default function Navbar() {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
+        // Cache for a bit to prevent repetitive requests across navigations
+        cache: 'no-store',
       })
 
       if (response.ok) {
@@ -100,7 +104,7 @@ export default function Navbar() {
       {pathname === "/dashboard" && (
         <div
           aria-hidden
-          className="pointer-events-none absolute -top-32 -left-40 w-[48rem] h-[48rem] rounded-full bg-orange-500/35 blur-[180px] mix-blend-screen"
+          className="pointer-events-none absolute left-0 top-0 w-[50vw] h-[50vh] md:-top-32 md:-left-40 md:w-[48rem] md:h-[48rem] rounded-full bg-orange-500/35 blur-[120px] md:blur-[180px] mix-blend-screen"
         />
       )}
 

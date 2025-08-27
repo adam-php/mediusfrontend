@@ -106,7 +106,8 @@ export default function ProfilePage(): JSX.Element {
 
       // upload directly (no cropper)
       const safeName = file.name.replace(/\s+/g, "_");
-      const path = `avatars/${user.id}/${Date.now()}-${safeName}`;
+      // storage object key must be relative to bucket root; RLS expects <uid>/...
+      const path = `${user.id}/${Date.now()}-${safeName}`;
       const { error: uploadErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
       if (uploadErr) throw uploadErr;
 
@@ -315,7 +316,7 @@ export default function ProfilePage(): JSX.Element {
 
             {/* Actions */}
             <div className="flex gap-2 justify-end">
-              <button onClick={saveProfile} disabled={saving} className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-3 font-semibold disabled:opacity-50">
+              <button onClick={saveProfile} disabled={saving} className="rounded-xl bg-[#FF7A00] hover:bg-[#FF7A00] px-6 py-3 font-semibold disabled:opacity-50 text-white">
                 {saving ? "Saving..." : "Save"}
               </button>
             </div>
@@ -325,9 +326,7 @@ export default function ProfilePage(): JSX.Element {
           </div>
         </div>
 
-        {/* optional messages outside card */}
-        {msg && <div className="text-green-400">{msg}</div>}
-        {error && <div className="text-red-400">{error}</div>}
+        
       </div>
     </div>
   );
