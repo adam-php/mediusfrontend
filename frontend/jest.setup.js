@@ -23,6 +23,7 @@ jest.mock('next/navigation', () => ({
 
 // Mock Supabase
 jest.mock('@/lib/supabase', () => ({
+  isSupabaseConfigured: () => true,
   supabase: {
     auth: {
       getUser: jest.fn(),

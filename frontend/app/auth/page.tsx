@@ -1,239 +1,303 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
+import Image from "next/image"
 import { supabase } from "@/lib/supabase"
 
+type Mode = "signin" | "signup"
+
+const USERNAME_REGEX = /^[a-z0-9_]{3,50}$/
+
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialMode = (searchParams.get("mode") as Mode) || "signup"
+  const [mode, setMode] = useState<Mode>(initialMode)
+
+  const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [username, setUsername] = useState("")
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false)
-  const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const [checkingUsername, setCheckingUsername] = useState(false)
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
+
+  const callbackUrl = useMemo(() => `${window.location.origin}/auth/callback`, [])
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) router.replace("/dashboard")
+    })
+  }, [router])
+
+  useEffect(() => {
+    if (mode !== "signup") return
+    const uname = username.trim().toLowerCase()
+
+    setUsernameAvailable(null)
+    if (!USERNAME_REGEX.test(uname)) {
+      setCheckingUsername(false)
+      return
+    }
+
+    let cancelled = false
+    setCheckingUsername(true)
+    const t = setTimeout(async () => {
+      const { count, error } = await supabase
+        .from("profiles")
+        .select("id", { head: true, count: "exact" })
+        .eq("username", uname)
+
+      if (cancelled) return
+      if (error) {
+        console.warn("Username check error:", error)
+        setUsernameAvailable(null)
+      } else {
+        setUsernameAvailable((count ?? 0) === 0)
+      }
+      setCheckingUsername(false)
+    }, 400)
+
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [username, mode])
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
+    setMessage(null)
     setLoading(true)
-    setError("")
 
     try {
-      if (isLogin) {
+      if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
-        router.push("/dashboard")
+        router.replace("/dashboard")
       } else {
+        const uname = username.trim().toLowerCase()
+
+        if (!USERNAME_REGEX.test(uname)) {
+          setLoading(false)
+          setError("Username must be 3–50 chars, lowercase letters, numbers, or underscores.")
+          return
+        }
+
+        const { count, error: checkErr } = await supabase
+          .from("profiles")
+          .select("id", { head: true, count: "exact" })
+          .eq("username", uname)
+
+        if (checkErr) {
+          setLoading(false)
+          setError("Could not verify username availability. Please try again.")
+          return
+        }
+        if ((count ?? 0) > 0) {
+          setLoading(false)
+          setError("Username is already taken.")
+          return
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            emailRedirectTo: callbackUrl,
+            data: { username: uname },
           },
         })
         if (error) throw error
 
-        if (data.user && !data.user.email_confirmed_at) {
-          setShowEmailConfirmation(true)
-        } else if (data.user) {
-          const { error: profileError } = await supabase.from("profiles").update({ username }).eq("id", data.user.id)
-          if (profileError) throw profileError
-          router.push("/dashboard")
+        if (!data.session) {
+          setMessage("Check your email to confirm your account.")
+        } else {
+          router.replace("/dashboard")
         }
       }
     } catch (err: any) {
-      setError(err.message)
+      setError(err?.message ?? "Something went wrong")
     } finally {
       setLoading(false)
     }
   }
 
-  if (showEmailConfirmation) {
-    return (
-      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center p-4">
-        {/* Subtle animated background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/8 via-black to-amber-500/8"></div>
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/15 rounded-full blur-3xl animate-float-slow"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl animate-float-slow-reverse"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-orange-400/8 rounded-full blur-2xl animate-float-gentle"></div>
-
-        <div className="max-w-md w-full relative z-10 animate-fade-in-up">
-          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl p-8 shadow-2xl shadow-orange-500/10 relative overflow-hidden hover:border-white/15 hover:bg-white/8 transition-all duration-500 ease-out">
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 rounded-3xl"></div>
-            <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-orange-400/50 to-transparent"></div>
-
-            <div className="relative z-10">
-              <div className="text-center mb-8">
-                <div className="w-20 h-20 bg-gradient-to-br from-orange-500/20 to-amber-500/20 backdrop-blur-sm border border-orange-400/30 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-orange-500/20 hover:scale-105 transition-transform duration-300 ease-out">
-                  <svg
-                    className="w-10 h-10 text-orange-400 animate-fade-in"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <h2 className="text-3xl font-bold text-white mb-2 animate-slide-in-left">Check Your Email</h2>
-                <p className="text-gray-300/80 mb-6 animate-slide-in-right">
-                  We've sent a confirmation link to <span className="text-orange-400 font-medium">{email}</span>
-                </p>
-              </div>
-
-              <div className="space-y-6">
-                <div className="backdrop-blur-sm bg-blue-500/10 border border-blue-400/20 rounded-2xl p-6 animate-slide-in-up hover:bg-blue-500/15 hover:border-blue-400/30 transition-all duration-300 ease-out">
-                  <h3 className="text-blue-300 font-medium mb-3 flex items-center space-x-2">
-                    <span className="animate-bounce-gentle">✨</span>
-                    <span>What's next?</span>
-                  </h3>
-                  <ul className="text-sm text-blue-200/80 space-y-2">
-                    <li className="flex items-center space-x-3 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                      <span>Check your email inbox (and spam folder)</span>
-                    </li>
-                    <li className="flex items-center space-x-3 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                      <span>Click the confirmation link</span>
-                    </li>
-                    <li className="flex items-center space-x-3 animate-fade-in" style={{ animationDelay: "0.3s" }}>
-                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                      <span>You'll be automatically signed in</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <button
-                  onClick={() => setShowEmailConfirmation(false)}
-                  className="w-full py-4 px-6 backdrop-blur-sm bg-white/10 hover:bg-white/15 border border-white/20 hover:border-white/30 text-white font-medium rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.02] transform ease-out"
-                >
-                  Back to Sign Up
-                </button>
-              </div>
-
-              <div className="mt-8 flex items-center justify-center animate-fade-in" style={{ animationDelay: "0.5s" }}>
-                <div className="flex items-center text-sm text-gray-400">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full mr-2 animate-glow-gentle"></div>
-                  Secure Email Verification
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+  const handleOAuth = async (provider: "google" | "discord") => {
+    setError(null)
+    setLoading(true)
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: callbackUrl },
+    })
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    }
   }
 
+  // Larger inputs + placeholders
+  const inputBase =
+    "h-12 w-full rounded-md border border-white/10 bg-[#111111] px-3 text-[16px] text-white " +
+    "placeholder:text-[16px] placeholder:text-gray-400/90 focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+
+  const canSubmitSignup =
+    mode === "signin" ||
+    (USERNAME_REGEX.test(username) &&
+      usernameAvailable !== false &&
+      !checkingUsername)
+
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-gradient-to-br from-orange-500/8 via-black to-amber-500/8"></div>
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/15 rounded-full blur-3xl animate-float-slow"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl animate-float-slow-reverse"></div>
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-orange-400/8 rounded-full blur-2xl animate-float-gentle"></div>
+    <div className="relative flex min-h-screen items-center justify-center bg-black text-white overflow-hidden">
+      {/* Background glow/vignette */}
+      <div className="pointer-events-none absolute inset-0 opacity-80">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[1200px] h-[700px] rounded-full blur-3xl bg-[radial-gradient(closest-side,rgba(255,149,0,0.25),rgba(0,0,0,0))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_100%,rgba(255,149,0,0.12),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.65)_45%,rgba(0,0,0,0.95)_100%)]" />
+      </div>
 
-      <div className="max-w-md w-full relative z-10 animate-fade-in-up">
-        <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl p-8 shadow-2xl shadow-orange-500/10 relative overflow-hidden hover:border-white/15 hover:bg-white/8 transition-all duration-500 ease-out">
-          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 rounded-3xl"></div>
-          <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-orange-400/50 to-transparent"></div>
-
-          <div className="relative z-10">
-            <h2 className="text-3xl font-bold mb-8 text-center text-white animate-slide-in-down">
-              {isLogin ? "Welcome Back" : "Join Us"}
-            </h2>
-
-            <form onSubmit={handleAuth} className="space-y-6">
-              <div className="animate-slide-in-left" style={{ animationDelay: "0.1s" }}>
-                <label className="block text-sm font-medium text-gray-300 mb-3">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-4 backdrop-blur-sm bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-400/50 focus:bg-white/15 transition-all duration-300 ease-out hover:bg-white/12"
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
-
-              {!isLogin && (
-                <div className="animate-slide-in-right" style={{ animationDelay: "0.2s" }}>
-                  <label className="block text-sm font-medium text-gray-300 mb-3">Username</label>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full px-4 py-4 backdrop-blur-sm bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-400/50 focus:bg-white/15 transition-all duration-300 ease-out hover:bg-white/12"
-                    placeholder="Choose a username"
-                    required
-                  />
-                </div>
-              )}
-
-              <div className="animate-slide-in-left" style={{ animationDelay: isLogin ? "0.2s" : "0.3s" }}>
-                <label className="block text-sm font-medium text-gray-300 mb-3">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-4 backdrop-blur-sm bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-400/50 focus:bg-white/15 transition-all duration-300 ease-out hover:bg-white/12"
-                  placeholder="Enter your password"
-                  required
-                />
-              </div>
-
-              {error && (
-                <div className="backdrop-blur-sm bg-red-500/10 border border-red-400/20 text-red-300 px-4 py-4 rounded-2xl text-sm animate-shake">
-                  <div className="flex items-center space-x-2">
-                    <span>⚠️</span>
-                    <span>{error}</span>
-                  </div>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 px-6 bg-gradient-to-r from-orange-500/80 to-amber-500/80 hover:from-orange-500 hover:to-amber-500 backdrop-blur-sm border border-orange-400/30 text-white font-semibold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 hover:shadow-xl hover:scale-[1.02] transform ease-out relative overflow-hidden group animate-slide-in-up"
-                style={{ animationDelay: isLogin ? "0.3s" : "0.4s" }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-orange-400/20 to-amber-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div className="relative z-10">
-                  {loading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                      Loading...
-                    </div>
-                  ) : isLogin ? (
-                    "Sign In"
-                  ) : (
-                    "Create Account"
-                  )}
-                </div>
-              </button>
-            </form>
-
-            <div className="mt-8 text-center animate-fade-in" style={{ animationDelay: "0.6s" }}>
-              <button
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-orange-400 hover:text-orange-300 transition-colors duration-300 text-sm font-medium hover:scale-105 transform ease-out"
-              >
-                {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-              </button>
-            </div>
-
-            <div className="mt-8 flex items-center justify-center animate-fade-in" style={{ animationDelay: "0.7s" }}>
-              <div className="flex items-center text-sm text-gray-400">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-glow-gentle"></div>
-                All systems operational
-              </div>
-            </div>
-          </div>
+      {/* Card */}
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0b0c]/95 p-8 shadow-[0_10px_60px_rgba(255,149,0,0.25)]">
+        {/* Logo image */}
+        <div className="mx-auto mb-4 flex h-8 w-8 items-center justify-center">
+          <Image src="/images/image.png" alt="Logo" width={32} height={32} className="h-8 w-8 object-contain" priority />
         </div>
+
+        <h1 className="text-center text-2xl font-semibold">
+          {mode === "signin" ? "Sign in" : "Create account"}
+        </h1>
+
+        {/* OAuth buttons */}
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <button
+            onClick={() => handleOAuth("discord")}
+            disabled={loading}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#5865F2] px-3 text-[15px] font-medium text-white hover:brightness-110 disabled:opacity-50"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 245 240" fill="currentColor">
+              <path d="M104.4 104.9c-5.7 0-10.2 5-10.2 11.1s4.6 11.1 10.2 11.1c5.7 0 10.2-5 10.2-11.1s-4.5-11.1-10.2-11.1z"/>
+              <path d="M189.5 20h-134A35.6 35.6 0 0020 55.6v128.7A35.6 35.6 0 0055.6 220h115.4l-5.4-18.7 13.1 12.1 12.4 11.4 22.4 20v-44.7l-.1-1.1V55.6A35.6 35.6 0 00189.5 20z"/>
+            </svg>
+            Discord
+          </button>
+
+          <button
+            onClick={() => handleOAuth("google")}
+            disabled={loading}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/10 bg-white text-[15px] font-medium text-gray-900 hover:bg-gray-100 disabled:opacity-50"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 48 48">
+              <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.4 32.4 29 36 24 36c-6.6 0-12-5.4-12-12S17.4 12 24 12c3.1 0 6 1.2 8.2 3.2l5.7-5.7C34.1 6 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.1-.1-2.1-.4-3.1z"/>
+              <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.2 16 18.7 12 24 12c3.1 0 6 1.2 8.2 3.2l5.7-5.7C34.1 6 29.3 4 24 4 16.1 4 9.2 8.5 6.3 14.7z"/>
+              <path fill="#4CAF50" d="M24 44c5 0 9.7-1.9 13.2-5l-6.1-5c-2 1.4-4.6 2.2-7.1 2.2-5 0-9.3-3.6-10.7-8.4l-6.6 5.1C9.3 39.6 16.1 44 24 44z"/>
+              <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1 3.1-3.4 5.6-6.3 6.9l.1.1 6.1 5C38 37.7 40 32.1 40 26c0-1.1-.1-2.1-.4-3.1z"/>
+            </svg>
+            Google
+          </button>
+        </div>
+
+        {/* Divider */}
+        <div className="mt-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-white/10" />
+          <span className="text-[11px] tracking-widest text-gray-400">OR WITH EMAIL</span>
+          <div className="h-px flex-1 bg-white/10" />
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleEmailSubmit} className="mt-6 space-y-4">
+          {mode === "signup" && (
+            <div>
+              <label className="mb-1 block text-sm text-gray-300">Username</label>
+              <div className="flex">
+                {/* Prefix with inner vertical divider */}
+                <span className="relative inline-flex h-12 items-center rounded-l-md border border-r-0 border-white/10 bg-[#111111] px-3 text-[16px] text-gray-400 after:absolute after:right-0 after:top-2 after:bottom-2 after:w-px after:bg-white/10">
+                  hello.com/
+                </span>
+                <input
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  className={`${inputBase} rounded-l-none border-l-0`}
+                  placeholder="username"
+                  minLength={3}
+                  pattern="[a-z0-9_]+"
+                  title="Use 3–50 chars: lowercase letters, numbers, and underscores"
+                />
+              </div>
+              <div className="mt-1 text-xs">
+                {checkingUsername && USERNAME_REGEX.test(username) && (
+                  <span className="text-gray-400">Checking…</span>
+                )}
+                {!checkingUsername && username && USERNAME_REGEX.test(username) && usernameAvailable === true && (
+                  <span className="text-green-400">Available</span>
+                )}
+                {!checkingUsername && username && USERNAME_REGEX.test(username) && usernameAvailable === false && (
+                  <span className="text-red-400">Already taken</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="mb-1 block text-sm text-gray-300">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputBase}
+              placeholder="name@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-gray-300">Password</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={inputBase}
+              placeholder="••••••••"
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          {message && <p className="text-sm text-green-400">{message}</p>}
+
+          {/* Slightly lighter orange CTA */}
+          <button
+            type="submit"
+            disabled={loading || (mode === "signup" && !canSubmitSignup)}
+            className="mt-2 inline-flex h-12 w-full items-center justify-center rounded-md bg-orange-500 text-[15px] font-semibold text-white hover:bg-orange-500/90 disabled:opacity-50"
+          >
+            {loading ? (mode === "signin" ? "Signing in..." : "Creating...") : mode === "signin" ? "Sign In" : "Create Account"}
+          </button>
+        </form>
+
+        {/* Footer */}
+        <p className="mt-4 text-center text-sm text-gray-400">
+          {mode === "signin" ? (
+            <>
+              Don’t have an account?{" "}
+              <button onClick={() => setMode("signup")} className="text-orange-400 hover:text-orange-300">
+                Create one
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{" "}
+              <button onClick={() => setMode("signin")} className="text-orange-400 hover:text-orange-300">
+                Log in
+              </button>
+            </>
+          )}
+        </p>
       </div>
     </div>
   )
