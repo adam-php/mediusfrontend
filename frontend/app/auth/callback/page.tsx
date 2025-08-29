@@ -28,11 +28,12 @@ export default function AuthCallback() {
         const codeFromStorage = typeof window !== "undefined" ? (localStorage.getItem("medius_ref_code") || "") : ""
         const code = (codeFromUrl || codeFromStorage || "").trim()
         if (session && code) {
-          await fetch(`${API_URL}/api/referrals/claim`, {
+          await fetch(`${API_URL}/api/referrals/claim?ngrok-skip-browser-warning=true`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`
+              Authorization: `Bearer ${session.access_token}`,
+              'ngrok-skip-browser-warning': '1',
             },
             body: JSON.stringify({ code })
           }).catch(() => {})

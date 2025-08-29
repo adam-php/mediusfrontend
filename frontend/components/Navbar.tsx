@@ -44,15 +44,22 @@ export default function Navbar() {
       if (isFetchingRef.current) return
       if (lastTokenRef.current === accessToken) return
       isFetchingRef.current = true
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me?ngrok-skip-browser-warning=true`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'ngrok-skip-browser-warning': '1',
         },
         // Cache for a bit to prevent repetitive requests across navigations
         cache: 'no-store',
       })
 
       if (response.ok) {
+        const contentType = response.headers.get('content-type') || ''
+        if (!contentType.includes('application/json')) {
+          const text = await response.text()
+          console.warn('Non-JSON response for profile/me:', text.slice(0, 80))
+          return
+        }
         const data = await response.json()
         setUserProfile(data)
         lastTokenRef.current = accessToken

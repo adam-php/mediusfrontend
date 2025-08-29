@@ -249,7 +249,9 @@ export default function CreateEscrow() {
 
     const fetchCurrencies = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/c-currencies`)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/c-currencies?ngrok-skip-browser-warning=true`, {
+          headers: { 'ngrok-skip-browser-warning': '1' },
+        })
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
         const data = await response.json()
         if (!data || data.length === 0) throw new Error("No currencies returned from API")
@@ -311,9 +313,9 @@ export default function CreateEscrow() {
           payment_method: paymentMethod,
           usd_amount: usd,
         }
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calculate-fee`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calculate-fee?ngrok-skip-browser-warning=true`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", 'ngrok-skip-browser-warning': '1' },
           body: JSON.stringify(body),
         })
         if (!response.ok) throw new Error("Fee calc failed")
@@ -365,7 +367,8 @@ export default function CreateEscrow() {
 
       // Optional UX: ensure user exists early
       const existsRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(trimmedUsername)}`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(trimmedUsername)}?ngrok-skip-browser-warning=true`,
+        { headers: { 'ngrok-skip-browser-warning': '1' } }
       )
       if (!existsRes.ok) {
         setError("User not found. Please check the username.")
@@ -406,11 +409,12 @@ export default function CreateEscrow() {
       console.log("Final currency being sent:", payload.currency)
       console.log("Authorization token (first 20 chars):", session.access_token.substring(0, 20) + "...")
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows?ngrok-skip-browser-warning=true`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
+          'ngrok-skip-browser-warning': '1',
         },
         body: JSON.stringify(payload),
       })

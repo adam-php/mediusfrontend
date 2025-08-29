@@ -1,12 +1,12 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Check } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 
-export default function PublicProfilePage({ params }: { params: { username: string } }) {
+export default function PublicProfilePage() {
   const router = useRouter()
+  const routeParams = useParams<{ username: string }>()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [profile, setProfile] = useState<any>(null)
@@ -16,13 +16,20 @@ export default function PublicProfilePage({ params }: { params: { username: stri
   const [blocked, setBlocked] = useState(false)
 
   useEffect(() => {
-    const username = params?.username
+    const username = routeParams?.username
     if (!username) return
     ;(async () => {
       try {
         setLoading(true)
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(username)}`)
-        if (!res.ok) throw new Error((await res.json()).error || "User not found")
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(username)}?ngrok-skip-browser-warning=true`, {
+          headers: { 'ngrok-skip-browser-warning': '1' },
+          cache: 'no-store',
+        })
+        const contentType = res.headers.get('content-type') || ''
+        if (!res.ok || !contentType.includes('application/json')) {
+          const text = await res.text()
+          throw new Error((() => { try { return JSON.parse(text).error } catch { return `User not found (${res.status})` } })())
+        }
         const data = await res.json()
         setProfile(data)
 
@@ -33,7 +40,7 @@ export default function PublicProfilePage({ params }: { params: { username: stri
         setLoading(false)
       }
     })()
-  }, [params?.username])
+  }, [routeParams?.username])
 
   const publicUrl = useMemo(() => {
     if (typeof window === "undefined" || !profile?.username) return ""
@@ -75,9 +82,9 @@ export default function PublicProfilePage({ params }: { params: { username: stri
           window.location.href = "/auth"
           return
         }
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(username)}/block`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(username)}/block?ngrok-skip-browser-warning=true`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
           body: JSON.stringify({ action: 'block' })
         })
         if (!res.ok) {
@@ -135,66 +142,69 @@ export default function PublicProfilePage({ params }: { params: { username: stri
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="max-w-3xl mx-auto px-4 py-10 space-y-8">
-        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="w-28 h-28 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-xl border border-white/10 shadow-sm">
-                {showImage ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={() => setImageError(true)}
-                  />
-                ) : (
-                  <div className="w-full h-full grid place-items-center bg-gradient-to-br from-zinc-800 to-zinc-700 text-white/90">
-                    <span>{initials || "👤"}</span>
-                  </div>
+      <div className="max-w-6xl mx-auto px-4 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left: Profile card */}
+          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-28 h-28 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-xl border border-white/10 shadow-sm">
+                  {showImage ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={() => setImageError(true)}
+                    />
+                  ) : (
+                    <div className="w-full h-full grid place-items-center bg-gradient-to-br from-zinc-800 to-zinc-700 text-white/90">
+                      <span>{initials || "👤"}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <div className="text-lg font-semibold">{profile.display_name ?? "Unnamed"}</div>
+                <div className="text-sm text-gray-400 mt-1">@{profile.username}</div>
+                {memberSince && (
+                  <div className="text-xs text-gray-500 mt-2">Member since {memberSince}</div>
                 )}
+                {profile.bio && <div className="text-sm text-gray-400 mt-3">{profile.bio}</div>}
               </div>
             </div>
 
-            <div className="flex-1">
-              <div className="text-lg font-semibold">{profile.display_name ?? "Unnamed"}</div>
-              <div className="text-sm text-gray-400 mt-1">@{profile.username}</div>
-              {memberSince && (
-                <div className="text-xs text-gray-500 mt-2">Member since {memberSince}</div>
-              )}
-              {profile.bio && <div className="text-sm text-gray-400 mt-3">{profile.bio}</div>}
+            <div className="mt-6 flex gap-3 items-center">
+              <button
+                onClick={startEscrow}
+                className="rounded-2xl bg-[#FF7A00] hover:bg-[#FF7A00] px-6 py-3 font-semibold text-white shadow-lg shadow-orange-500/20"
+              >
+                Create Escrow
+              </button>
+              <BlockButton username={profile.username} className="ml-auto" />
             </div>
           </div>
 
-          <div className="mt-6 flex gap-3 items-center">
-            <button
-              onClick={startEscrow}
-              className="rounded-2xl bg-[#FF7A00] hover:bg-[#FF7A00] px-6 py-3 font-semibold text-white shadow-lg shadow-orange-500/20"
-            >
-              Create Escrow
-            </button>
-            <BlockButton username={profile.username} className="ml-auto" />
-          </div>
-        </div>
-
-        {/* Deal stats */}
-        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
-          <div className="text-sm text-gray-300 mb-2">Deal stats</div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <div className="text-xs text-gray-400">Completed escrows</div>
-              <div className="mt-1 text-xl font-semibold">{profile?.stats?.completed ?? 0}</div>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <div className="text-xs text-gray-400">Active escrows</div>
-              <div className="mt-1 text-xl font-semibold">{profile?.stats?.active ?? 0}</div>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <div className="text-xs text-gray-400">Total escrows</div>
-              <div className="mt-1 text-xl font-semibold">{profile?.stats?.total ?? 0}</div>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <div className="text-xs text-gray-400">Total completed volume (USD)</div>
-              <div className="mt-1 text-xl font-semibold">${((profile?.stats?.volume_usd ?? 0) as number).toLocaleString('en-US')}</div>
+          {/* Right: Deal stats */}
+          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+            <div className="text-sm text-gray-300 mb-2">Deal stats</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-xs text-gray-400">Completed escrows</div>
+                <div className="mt-1 text-xl font-semibold">{profile?.stats?.completed ?? 0}</div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-xs text-gray-400">Active escrows</div>
+                <div className="mt-1 text-xl font-semibold">{profile?.stats?.active ?? 0}</div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-xs text-gray-400">Total escrows</div>
+                <div className="mt-1 text-xl font-semibold">{profile?.stats?.total ?? 0}</div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-xs text-gray-400">Total completed volume (USD)</div>
+                <div className="mt-1 text-xl font-semibold">${((profile?.stats?.volume_usd ?? 0) as number).toLocaleString('en-US')}</div>
+              </div>
             </div>
           </div>
         </div>

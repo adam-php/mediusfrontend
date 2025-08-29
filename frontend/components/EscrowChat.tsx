@@ -366,9 +366,9 @@ export default function EscrowChat({
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error("Not authenticated")
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/refund`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/refund?ngrok-skip-browser-warning=true`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
         body: JSON.stringify({ refund_address: buyerAddress }),
       })
 
@@ -416,11 +416,12 @@ export default function EscrowChat({
     try {
       setPaypalEmailLoading(true)
       const { data: { session } } = await supabase.auth.getSession()
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/paypal-email`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/paypal-email?ngrok-skip-browser-warning=true`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token}`,
+          'ngrok-skip-browser-warning': '1',
         },
         body: JSON.stringify({ paypal_email: sellerPaypalEmail })
       })

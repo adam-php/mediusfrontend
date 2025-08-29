@@ -68,7 +68,10 @@ export default function UsernamePicker({ value, onChange }: { value: string; onC
         url.searchParams.set("q", q)
 
         const res = await fetch(url.toString(), {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "ngrok-skip-browser-warning": "true",
+          },
           signal: abortControllerRef.current.signal
         })
 
@@ -106,7 +109,11 @@ export default function UsernamePicker({ value, onChange }: { value: string; onC
           }
         }
       } catch (error) {
-        if (error.name !== 'AbortError') {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          // Ignore aborted requests
+        } else if (error instanceof Error) {
+          console.error('Search error:', error)
+        } else {
           console.error('Search error:', error)
         }
       } finally {

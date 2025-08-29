@@ -124,8 +124,9 @@ export default function ReferralsPage() {
       }
 
       // Load summary
-      const res = await fetch(`${API_URL}/api/referrals/summary`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+      const res = await fetch(`${API_URL}/api/referrals/summary?ngrok-skip-browser-warning=true`, {
+        headers: { Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
+        cache: 'no-store',
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || "Failed to load referrals")
@@ -134,7 +135,10 @@ export default function ReferralsPage() {
       // Load supported currencies (best-effort)
       setCurrLoading(true)
       try {
-        const cRes = await fetch(`${API_URL}/api/supported-currencies`)
+        const cRes = await fetch(`${API_URL}/api/supported-currencies?ngrok-skip-browser-warning=true`, {
+          headers: { 'ngrok-skip-browser-warning': '1' },
+          cache: 'no-store',
+        })
         if (cRes.ok) {
           const list: Currency[] = await cRes.json()
           setCurrencies(Array.isArray(list) ? list : [])
@@ -167,12 +171,9 @@ export default function ReferralsPage() {
       if (!session) { window.location.href = "/auth"; return }
       if (!claimCode.trim()) throw new Error("Enter a referral code or username")
 
-      const res = await fetch(`${API_URL}/api/referrals/claim`, {
+      const res = await fetch(`${API_URL}/api/referrals/claim?ngrok-skip-browser-warning=true`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
         body: JSON.stringify({ code: claimCode.trim() })
       })
       const j = await res.json().catch(() => ({}))
@@ -209,12 +210,9 @@ export default function ReferralsPage() {
       if (!session) { window.location.href = "/auth"; return }
 
       setWithdrawing(true)
-      const res = await fetch(`${API_URL}/api/referrals/withdraw`, {
+      const res = await fetch(`${API_URL}/api/referrals/withdraw?ngrok-skip-browser-warning=true`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
         body: JSON.stringify({
           amount_usd: amt,
           currency: payoutCurrency,

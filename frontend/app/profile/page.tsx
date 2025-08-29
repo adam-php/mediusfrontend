@@ -50,15 +50,21 @@ export default function ProfilePage(): JSX.Element {
     setError("");
     try {
       // profile from backend
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me?ngrok-skip-browser-warning=true`, {
+        headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
+        cache: 'no-store',
       });
       if (!res.ok) {
         let body = {};
         try {
           body = await res.json();
         } catch {}
-        throw new Error((body as any).error || "Failed to load profile");
+        throw new Error((body as any).error || `Failed to load profile (${res.status})`);
+      }
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        throw new Error(`Unexpected response from API (non-JSON). First bytes: ${text.slice(0, 60)}`);
       }
       const data = await res.json();
       setMe(data);
@@ -143,9 +149,9 @@ export default function ProfilePage(): JSX.Element {
       const { data: sessionResp } = await supabase.auth.getSession();
       const token = sessionResp?.session?.access_token;
       if (!token) return;
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me?ngrok-skip-browser-warning=true`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
         body: JSON.stringify({ avatar_url: publicUrl }),
       });
     } catch (e) {
@@ -174,9 +180,9 @@ export default function ProfilePage(): JSX.Element {
       const { data: sessionResp } = await supabase.auth.getSession();
       const token = sessionResp?.session?.access_token;
       if (!token) throw new Error("Not authenticated");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me?ngrok-skip-browser-warning=true`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
         body: JSON.stringify({ display_name: displayName, bio, avatar_url: avatarUrl }),
       });
       const j = await res.json();
@@ -213,13 +219,13 @@ export default function ProfilePage(): JSX.Element {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
-        {/* Editor card */}
-        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
-          <h1 className="text-3xl font-bold mb-2">Your Profile</h1>
-          <p className="text-sm text-gray-400 mb-6">Update your avatar and personal details.</p>
+      <div className="max-w-6xl mx-auto px-4 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left: Avatar and stats */}
+          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+            <h1 className="text-3xl font-bold mb-2">Your Profile</h1>
+            <p className="text-sm text-gray-400 mb-6">Update your avatar and personal details.</p>
 
-          <div className="space-y-6">
             {/* Avatar + username */}
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -278,14 +284,8 @@ export default function ProfilePage(): JSX.Element {
               </div>
             </div>
 
-            {/* Display name */}
-            <div>
-              <label className="text-sm text-gray-300 mb-1 block" htmlFor="display_name">Display name</label>
-              <input id="display_name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} className="w-full rounded-xl bg-white/10 px-4 py-3 border border-white/20 focus:outline-none focus:ring-2 focus:ring-orange-500/50" />
-            </div>
-
             {/* Stats */}
-            <div>
+            <div className="mt-6">
               <div className="text-sm text-gray-300 mb-2">Your stats</div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="rounded-xl border border-white/10 bg-white/5 p-4">
@@ -306,27 +306,34 @@ export default function ProfilePage(): JSX.Element {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Right: Editable fields */}
+          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
+            {/* Display name */}
+            <div>
+              <label className="text-sm text-gray-300 mb-1 block" htmlFor="display_name">Display name</label>
+              <input id="display_name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} className="w-full rounded-xl bg-white/10 px-4 py-3 border border-white/20 focus:outline-none focus:ring-2 focus:ring-orange-500/50" />
+            </div>
 
             {/* Bio */}
-            <div>
+            <div className="mt-6">
               <label className="text-sm text-gray-300 mb-1 block" htmlFor="bio">Bio</label>
-              <textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={5} maxLength={500} className="w-full rounded-xl bg-white/10 px-4 py-3 border border-white/20 focus:outline-none focus:ring-2 focus:ring-orange-500/50" />
+              <textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={8} maxLength={500} className="w-full rounded-xl bg-white/10 px-4 py-3 border border-white/20 focus:outline-none focus:ring-2 focus:ring-orange-500/50" />
               <div className="mt-1 text-xs text-gray-500">Up to 500 characters</div>
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2 justify-end">
+            <div className="mt-6 flex gap-2 justify-end">
               <button onClick={saveProfile} disabled={saving} className="rounded-xl bg-[#FF7A00] hover:bg-[#FF7A00] px-6 py-3 font-semibold disabled:opacity-50 text-white">
                 {saving ? "Saving..." : "Save"}
               </button>
             </div>
 
-            {msg && <div className="text-green-400 text-sm">{msg}</div>}
-            {error && <div className="text-red-400 text-sm">{error}</div>}
+            {msg && <div className="mt-3 text-green-400 text-sm">{msg}</div>}
+            {error && <div className="mt-3 text-red-400 text-sm">{error}</div>}
           </div>
         </div>
-
-        
       </div>
     </div>
   );

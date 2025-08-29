@@ -561,14 +561,7 @@ export default function Dashboard() {
                   </Link>
                 </motion.div>
                 <motion.div initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.03 }}>
-                  <Link
-                    href="/create-escrow"
-                    onClick={() => setMobileNavOpen(false)}
-                    className="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition-all duration-200"
-                  >
-                    <PlusCircle className="h-5 w-5" />
-                    <span className="font-medium">Create Escrow</span>
-                  </Link>
+                  
                 </motion.div>
                 <motion.div initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.06 }}>
                   <Link

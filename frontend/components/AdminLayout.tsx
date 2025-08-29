@@ -36,9 +36,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           setIsAdmin(false)
         } else {
           // Primary: backend profile endpoint (service key, reliable role)
-          const profRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me`, {
-            headers: { Authorization: `Bearer ${token}` },
-            credentials: "include",
+          const profRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me?ngrok-skip-browser-warning=true`, {
+            headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
             cache: 'no-store',
           })
           if (cancelled) return
@@ -49,25 +48,22 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               return
             }
             // Not admin per profile: double-check by hitting a protected admin endpoint
-            const over = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview`, {
-              headers: { Authorization: `Bearer ${token}` },
-              credentials: "include",
+            const over = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview?ngrok-skip-browser-warning=true`, {
+              headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
               cache: 'no-store',
             })
             setIsAdmin(over.status === 200)
           } else {
             // Fallback: access-check, then final try overview
-            const acc = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/access-check`, {
-              headers: { Authorization: `Bearer ${token}` },
-              credentials: "include",
+            const acc = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/access-check?ngrok-skip-browser-warning=true`, {
+              headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
               cache: 'no-store',
             })
             if (acc.status === 200) {
               setIsAdmin(true)
             } else {
-              const over = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview`, {
-                headers: { Authorization: `Bearer ${token}` },
-                credentials: "include",
+              const over = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview?ngrok-skip-browser-warning=true`, {
+                headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
                 cache: 'no-store',
               })
               setIsAdmin(over.status === 200)
@@ -111,14 +107,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       try {
         const { data } = await supabase.auth.getSession()
         const token = data.session?.access_token
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/security/forbidden-admin`, {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/security/forbidden-admin?ngrok-skip-browser-warning=true`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            'ngrok-skip-browser-warning': '1',
           },
           body: JSON.stringify({ path: pathname }),
-          credentials: "include",
         })
       } catch {}
     })()
