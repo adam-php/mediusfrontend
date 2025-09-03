@@ -85,6 +85,7 @@ export default function AdminEscrowsPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/escrows?${params}`, {
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          "ngrok-skip-browser-warning": "true"
         },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -129,6 +130,7 @@ export default function AdminEscrowsPage() {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          "ngrok-skip-browser-warning": "true"
         },
         body: JSON.stringify({ action, resolution, to_address: toAddress })
       })

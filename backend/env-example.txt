@@ -1,0 +1,47 @@
+# Backend Environment Configuration
+# Copy this file to .env and fill in your values
+
+# Flask Configuration
+FLASK_ENV=development
+ENV=development
+
+# CORS Configuration
+# Set to 'true' for development, 'false' for production
+CORS_ALLOW_ALL=true
+
+# Frontend URL (used for CORS in production)
+FRONTEND_URL=http://localhost:3000
+
+# Additional allowed origins (comma-separated, optional)
+# ADDITIONAL_ALLOWED_ORIGINS=https://yourdomain.com,https://staging.yourdomain.com
+
+# Supabase Configuration (Required for authentication)
+SUPABASE_JWT_SECRET=your_supabase_jwt_secret_here
+SUPABASE_SERVICE_KEY=your_supabase_service_role_key_here
+
+# Database Configuration (if using external database)
+# DATABASE_URL=postgresql://user:password@localhost/dbname
+
+# PayPal Configuration (if using PayPal payments)
+# PAYPAL_CLIENT_ID=your_paypal_client_id
+# PAYPAL_CLIENT_SECRET=your_paypal_client_secret
+
+# Email Configuration (if using email features)
+# SMTP_SERVER=smtp.gmail.com
+# SMTP_PORT=587
+# SMTP_USERNAME=your_email@gmail.com
+# SMTP_PASSWORD=your_app_password
+
+# Other API Keys (if needed)
+# STRIPE_SECRET_KEY=sk_test_...
+# COINBASE_COMMERCE_API_KEY=...
+
+# Debug Settings
+# Set to 'true' to enable detailed logging
+DEBUG=true
+
+# Outbound callback config (dynamic delivery)
+OUTBOUND_CALLBACK_TIMEOUT_MS=5000
+OUTBOUND_CALLBACK_RETRY_MAX=3
+OUTBOUND_CALLBACK_USER_AGENT=Medius/1.0
+OUTBOUND_CALLBACK_BLOCK_PRIVATE=true

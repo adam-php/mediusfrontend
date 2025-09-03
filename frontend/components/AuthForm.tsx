@@ -29,15 +29,31 @@ export default function AuthForm() {
         if (error) throw error
         router.push("/dashboard")
       } else {
+        const uname = username.trim().toLowerCase()
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: { data: { username: uname } },
         })
         if (error) throw error
 
         if (data.user) {
-          // Update profile with username
-          const { error: profileError } = await supabase.from("profiles").update({ username }).eq("id", data.user.id)
+          // Ensure email is saved and username is sanitized (not an email)
+          const sanitizeUsername = (value: string): string => {
+            const cleaned = (value || "")
+              .toLowerCase()
+              .replace(/[^a-z0-9_]/g, "_")
+              .replace(/_+/g, "_")
+              .replace(/^_+|_+$/g, "")
+              .slice(0, 50)
+            return cleaned.length >= 3 ? cleaned : `user_${Math.random().toString(36).slice(2, 8)}`
+          }
+
+          const finalUsername = sanitizeUsername(uname.includes("@") ? uname.split("@")[0] : uname)
+
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .upsert({ id: data.user.id, email, username: finalUsername }, { onConflict: 'id' })
 
           if (profileError) throw profileError
           router.push("/dashboard")

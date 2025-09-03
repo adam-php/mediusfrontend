@@ -3,9 +3,10 @@
 import type React from "react"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { authApiRequest } from "@/lib/api"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Users, FileText, CreditCard, TrendingUp, Shield, Settings, LogOut, Activity } from "lucide-react"
+import { Users, FileText, CreditCard, TrendingUp, Shield, Settings, LogOut, Activity, Menu, X } from "lucide-react"
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -16,6 +17,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [checking, setChecking] = useState<boolean>(true)
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false)
 
   useEffect(() => {
     if (!pendingHref) return
@@ -36,8 +38,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           setIsAdmin(false)
         } else {
           // Primary: backend profile endpoint (service key, reliable role)
-          const profRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me?ngrok-skip-browser-warning=true`, {
-            headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
+          const profRes = await authApiRequest(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me`, sessionResp.session, {
             cache: 'no-store',
           })
           if (cancelled) return
@@ -48,22 +49,19 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               return
             }
             // Not admin per profile: double-check by hitting a protected admin endpoint
-            const over = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview?ngrok-skip-browser-warning=true`, {
-              headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
+            const over = await authApiRequest(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview`, sessionResp.session, {
               cache: 'no-store',
             })
             setIsAdmin(over.status === 200)
           } else {
             // Fallback: access-check, then final try overview
-            const acc = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/access-check?ngrok-skip-browser-warning=true`, {
-              headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
+            const acc = await authApiRequest(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/access-check`, sessionResp.session, {
               cache: 'no-store',
             })
             if (acc.status === 200) {
               setIsAdmin(true)
             } else {
-              const over = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview?ngrok-skip-browser-warning=true`, {
-                headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
+              const over = await authApiRequest(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview`, sessionResp.session, {
                 cache: 'no-store',
               })
               setIsAdmin(over.status === 200)
@@ -86,6 +84,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Escrows", href: "/admin/escrows", icon: FileText },
     { name: "Referrals", href: "/admin/referrals", icon: TrendingUp },
+    { name: "Reports", href: "/admin/reports", icon: Shield },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ] as const
 
@@ -107,15 +106,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       try {
         const { data } = await supabase.auth.getSession()
         const token = data.session?.access_token
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/security/forbidden-admin?ngrok-skip-browser-warning=true`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            'ngrok-skip-browser-warning': '1',
-          },
-          body: JSON.stringify({ path: pathname }),
-        })
+        if (token && data.session) {
+          await authApiRequest(`${process.env.NEXT_PUBLIC_API_URL}/api/security/forbidden-admin`, data.session, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: pathname }),
+          })
+        }
       } catch {}
     })()
 
@@ -129,9 +126,32 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <div className="min-h-screen bg-black">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-black/20 backdrop-blur-xl border-r border-white/10 min-h-screen">
+        <aside className={`
+          fixed inset-y-0 left-0 z-50 w-64 bg-black border-r border-white/10
+          transform transition-transform duration-300 ease-in-out
+          lg:translate-x-0 lg:static lg:inset-0 lg:z-auto
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}>
+          {/* Mobile Close Button */}
+          <div className="flex justify-end p-4 lg:hidden">
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+
           <nav className="p-6 space-y-2">
             {navigation.map((item) => {
               const Icon = item.icon
@@ -143,7 +163,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <Link
                   key={item.name}
                   href={item.href}
-                  onClick={() => setPendingHref(item.href)}
+                  onClick={() => {
+                    setPendingHref(item.href)
+                    setSidebarOpen(false) // Close sidebar on mobile after navigation
+                  }}
                   aria-current={isActive ? "page" : undefined}
                   className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
                     isActive
@@ -170,7 +193,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-6">{children}</main>
+        <div className="flex-1 min-w-0">
+          {/* Mobile Header */}
+          <header className="lg:hidden flex items-center justify-between p-4 bg-black border-b border-white/10">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+            <h1 className="text-lg font-semibold text-white">Admin Panel</h1>
+            <div className="w-10" /> {/* Spacer for centering */}
+          </header>
+
+          <main className="p-4 lg:p-6">{children}</main>
+        </div>
       </div>
     </div>
   )

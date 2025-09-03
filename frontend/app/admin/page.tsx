@@ -161,6 +161,7 @@ export default function AdminDashboard() {
         const overviewRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview`, {
           headers: {
             'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            "ngrok-skip-browser-warning": "true"
           },
         })
         if (overviewRes.ok) {
@@ -179,6 +180,7 @@ export default function AdminDashboard() {
         const statusRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/system/status`, {
           headers: {
             'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            "ngrok-skip-browser-warning": "true"
           },
         })
         if (statusRes.ok) {
@@ -218,17 +220,17 @@ export default function AdminDashboard() {
   }) => (
     <Link href={link} className="block">
       <div
-        className={`bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-6 hover:bg-white/10 transition-all duration-200 h-32 ${color}`}
+        className={`bg-black border border-white/10 rounded-lg p-4 lg:p-6 hover:bg-gray-900 transition-all duration-200 min-h-[120px] lg:h-32 ${color}`}
       >
         <div className="flex items-center justify-between h-full">
-          <div className="flex flex-col justify-between h-full">
-            <p className="text-sm font-medium text-gray-300">{title}</p>
-            <div>
-              <p className="text-2xl font-bold text-white">{value}</p>
-              {change && <p className="text-sm text-green-400">{change}</p>}
+          <div className="flex flex-col justify-between h-full flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-300 truncate">{title}</p>
+            <div className="min-w-0">
+              <p className="text-xl lg:text-2xl font-bold text-white truncate">{value}</p>
+              {change && <p className="text-sm text-green-400 truncate">{change}</p>}
             </div>
           </div>
-          <Icon className="h-8 w-8 text-gray-400" />
+          <Icon className="h-6 w-6 lg:h-8 lg:w-8 text-gray-400 flex-shrink-0 ml-3" />
         </div>
       </div>
     </Link>
@@ -237,10 +239,10 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="flex items-center space-x-3 text-white">
-            <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-lg">Loading admin dashboard...</span>
+        <div className="flex items-center justify-center min-h-[200px] lg:h-64">
+          <div className="flex items-center space-x-2 lg:space-x-3 text-white">
+            <div className="w-6 h-6 lg:w-8 lg:h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-sm lg:text-lg">Loading admin dashboard...</span>
           </div>
         </div>
       </AdminLayout>
@@ -250,15 +252,15 @@ export default function AdminDashboard() {
   if (error) {
     return (
       <AdminLayout>
-        <div className="bg-red-50/10 border border-red-400/30 rounded-lg p-4">
+        <div className="bg-red-50/10 border border-red-400/30 rounded-lg p-3 lg:p-4">
           <div className="flex items-center">
-            <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
-            <h3 className="text-sm font-medium text-red-400">Error loading dashboard</h3>
+            <AlertTriangle className="h-4 w-4 lg:h-5 lg:w-5 text-red-400 mr-2 flex-shrink-0" />
+            <h3 className="text-xs lg:text-sm font-medium text-red-400">Error loading dashboard</h3>
           </div>
-          <p className="mt-2 text-sm text-red-300">{error}</p>
+          <p className="mt-2 text-xs lg:text-sm text-red-300">{error}</p>
           <button
             onClick={fetchDashboardData}
-            className="mt-3 bg-red-500/20 hover:bg-red-500/30 text-red-300 px-3 py-1 rounded text-sm"
+            className="mt-3 bg-red-500/20 hover:bg-red-500/30 text-red-300 px-3 py-1 rounded text-xs lg:text-sm"
           >
             Retry
           </button>
@@ -269,20 +271,13 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6 min-h-0">
+      <div className="space-y-4 lg:space-y-6 min-h-0">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2">
           <div>
-            <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-            <p className="text-gray-400">Platform overview and management</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-white">Admin Dashboard</h1>
+            <p className="text-gray-400 text-sm lg:text-base">Platform overview and management</p>
           </div>
-          <button
-            onClick={fetchDashboardData}
-            className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-400/30 hover:border-orange-400/50 px-4 py-2 rounded-lg flex items-center space-x-2"
-          >
-            <Activity className="h-4 w-4" />
-            <span>Refresh</span>
-          </button>
         </div>
 
         {/* Key Metrics */}
@@ -318,95 +313,95 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-6">
+        <div className="bg-black border border-white/10 rounded-lg p-4 lg:p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link href="/admin/users" className="flex items-center p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-              <Users className="h-6 w-6 text-blue-400 mr-3" />
-              <div>
-                <h3 className="font-medium text-white">Manage Users</h3>
-                <p className="text-sm text-gray-400">View, search, and moderate users</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+            <Link href="/admin/users" className="flex items-center p-3 lg:p-4 bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">
+              <Users className="h-5 w-5 lg:h-6 lg:w-6 text-blue-400 mr-3 flex-shrink-0" />
+              <div className="min-w-0">
+                <h3 className="font-medium text-white text-sm lg:text-base truncate">Manage Users</h3>
+                <p className="text-xs lg:text-sm text-gray-400 hidden sm:block">View, search, and moderate users</p>
               </div>
             </Link>
-            <Link href="/admin/escrows" className="flex items-center p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-              <FileText className="h-6 w-6 text-green-400 mr-3" />
-              <div>
-                <h3 className="font-medium text-white">Escrow Disputes</h3>
-                <p className="text-sm text-gray-400">Resolve escrow conflicts</p>
+            <Link href="/admin/escrows" className="flex items-center p-3 lg:p-4 bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">
+              <FileText className="h-5 w-5 lg:h-6 lg:w-6 text-green-400 mr-3 flex-shrink-0" />
+              <div className="min-w-0">
+                <h3 className="font-medium text-white text-sm lg:text-base truncate">Escrow Disputes</h3>
+                <p className="text-xs lg:text-sm text-gray-400 hidden sm:block">Resolve escrow conflicts</p>
               </div>
             </Link>
-            <Link href="/admin/transactions" className="flex items-center p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-              <CreditCard className="h-6 w-6 text-purple-400 mr-3" />
-              <div>
-                <h3 className="font-medium text-white">Transaction Review</h3>
-                <p className="text-sm text-gray-400">Monitor platform transactions</p>
+            <Link href="/admin/transactions" className="flex items-center p-3 lg:p-4 bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors sm:col-span-2 lg:col-span-1">
+              <CreditCard className="h-5 w-5 lg:h-6 lg:w-6 text-purple-400 mr-3 flex-shrink-0" />
+              <div className="min-w-0">
+                <h3 className="font-medium text-white text-sm lg:text-base truncate">Transaction Review</h3>
+                <p className="text-xs lg:text-sm text-gray-400 hidden sm:block">Monitor platform transactions</p>
               </div>
             </Link>
           </div>
         </div>
 
         {/* System Status Overview */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {/* Service Status */}
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <Shield className="h-5 w-5 mr-2" />
-              Service Status
+          <div className="bg-black border border-white/10 rounded-lg p-4 lg:p-6">
+            <h2 className="text-base lg:text-lg font-semibold text-white mb-3 lg:mb-4 flex items-center">
+              <Shield className="h-4 w-4 lg:h-5 lg:w-5 mr-2 flex-shrink-0" />
+              <span className="truncate">Service Status</span>
             </h2>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300">Database</span>
-                <span className={`flex items-center ${systemStatus?.database.connected ? 'text-green-400' : 'text-red-400'}`}>
-                  {systemStatus?.database.connected ? <CheckCircle className="h-4 w-4 mr-1" /> : <AlertTriangle className="h-4 w-4 mr-1" />}
-                  {systemStatus?.database.connected ? 'Connected' : 'Disconnected'}
+            <div className="space-y-2 lg:space-y-3">
+              <div className="flex items-center justify-between min-w-0">
+                <span className="text-xs lg:text-sm text-gray-300 truncate mr-2">Database</span>
+                <span className={`flex items-center flex-shrink-0 ${systemStatus?.database.connected ? 'text-green-400' : 'text-red-400'}`}>
+                  {systemStatus?.database.connected ? <CheckCircle className="h-3 w-3 lg:h-4 lg:w-4 mr-1" /> : <AlertTriangle className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />}
+                  <span className="text-xs lg:text-sm truncate">{systemStatus?.database.connected ? 'Connected' : 'Disconnected'}</span>
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300">Crypto API</span>
-                <span className={`flex items-center ${systemStatus?.external_services.tatum_api ? 'text-green-400' : 'text-red-400'}`}>
-                  {systemStatus?.external_services.tatum_api ? <CheckCircle className="h-4 w-4 mr-1" /> : <AlertTriangle className="h-4 w-4 mr-1" />}
-                  {systemStatus?.external_services.tatum_api ? 'Enabled' : 'Disabled'}
+              <div className="flex items-center justify-between min-w-0">
+                <span className="text-xs lg:text-sm text-gray-300 truncate mr-2">Crypto API</span>
+                <span className={`flex items-center flex-shrink-0 ${systemStatus?.external_services.tatum_api ? 'text-green-400' : 'text-red-400'}`}>
+                  {systemStatus?.external_services.tatum_api ? <CheckCircle className="h-3 w-3 lg:h-4 lg:w-4 mr-1" /> : <AlertTriangle className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />}
+                  <span className="text-xs lg:text-sm truncate">{systemStatus?.external_services.tatum_api ? 'Enabled' : 'Disabled'}</span>
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300">PayPal API</span>
-                <span className={`flex items-center ${systemStatus?.external_services.paypal_api ? 'text-green-400' : 'text-red-400'}`}>
-                  {systemStatus?.external_services.paypal_api ? <CheckCircle className="h-4 w-4 mr-1" /> : <AlertTriangle className="h-4 w-4 mr-1" />}
-                  {systemStatus?.external_services.paypal_api ? 'Enabled' : 'Disabled'}
+              <div className="flex items-center justify-between min-w-0">
+                <span className="text-xs lg:text-sm text-gray-300 truncate mr-2">PayPal API</span>
+                <span className={`flex items-center flex-shrink-0 ${systemStatus?.external_services.paypal_api ? 'text-green-400' : 'text-red-400'}`}>
+                  {systemStatus?.external_services.paypal_api ? <CheckCircle className="h-3 w-3 lg:h-4 lg:w-4 mr-1" /> : <AlertTriangle className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />}
+                  <span className="text-xs lg:text-sm truncate">{systemStatus?.external_services.paypal_api ? 'Enabled' : 'Disabled'}</span>
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300">Encryption</span>
-                <span className={`flex items-center ${systemStatus?.security.encryption_configured ? 'text-green-400' : 'text-red-400'}`}>
-                  {systemStatus?.security.encryption_configured ? <CheckCircle className="h-4 w-4 mr-1" /> : <AlertTriangle className="h-4 w-4 mr-1" />}
-                  {systemStatus?.security.encryption_configured ? 'Configured' : 'Not Configured'}
+              <div className="flex items-center justify-between min-w-0">
+                <span className="text-xs lg:text-sm text-gray-300 truncate mr-2">Encryption</span>
+                <span className={`flex items-center flex-shrink-0 ${systemStatus?.security.encryption_configured ? 'text-green-400' : 'text-red-400'}`}>
+                  {systemStatus?.security.encryption_configured ? <CheckCircle className="h-3 w-3 lg:h-4 lg:w-4 mr-1" /> : <AlertTriangle className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />}
+                  <span className="text-xs lg:text-sm truncate">{systemStatus?.security.encryption_configured ? 'Configured' : 'Not Configured'}</span>
                 </span>
               </div>
             </div>
           </div>
 
           {/* Recent Activity */}
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <Activity className="h-5 w-5 mr-2" />
-              Recent Activity (24h)
+          <div className="bg-black border border-white/10 rounded-lg p-4 lg:p-6">
+            <h2 className="text-base lg:text-lg font-semibold text-white mb-3 lg:mb-4 flex items-center">
+              <Activity className="h-4 w-4 lg:h-5 lg:w-5 mr-2 flex-shrink-0" />
+              <span className="truncate">Recent Activity (24h)</span>
             </h2>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300">New Users</span>
-                <span className="text-sm font-medium text-white">{overview?.users.active_24h || 0}</span>
+            <div className="space-y-2 lg:space-y-3">
+              <div className="flex items-center justify-between min-w-0">
+                <span className="text-xs lg:text-sm text-gray-300 truncate mr-2">New Users</span>
+                <span className="text-xs lg:text-sm font-medium text-white flex-shrink-0">{overview?.users.active_24h || 0}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300">New Escrows</span>
-                <span className="text-sm font-medium text-white">{overview?.escrows.recent_24h || 0}</span>
+              <div className="flex items-center justify-between min-w-0">
+                <span className="text-xs lg:text-sm text-gray-300 truncate mr-2">New Escrows</span>
+                <span className="text-xs lg:text-sm font-medium text-white flex-shrink-0">{overview?.escrows.recent_24h || 0}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300">Transactions</span>
-                <span className="text-sm font-medium text-white">{overview?.transactions.recent_24h || 0}</span>
+              <div className="flex items-center justify-between min-w-0">
+                <span className="text-xs lg:text-sm text-gray-300 truncate mr-2">Transactions</span>
+                <span className="text-xs lg:text-sm font-medium text-white flex-shrink-0">{overview?.transactions.recent_24h || 0}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300">Revenue</span>
-                <span className="text-sm font-medium text-white">${overview?.revenue.total_platform_fees_usd.toFixed(2) || '0.00'}</span>
+              <div className="flex items-center justify-between min-w-0">
+                <span className="text-xs lg:text-sm text-gray-300 truncate mr-2">Revenue</span>
+                <span className="text-xs lg:text-sm font-medium text-white flex-shrink-0 truncate ml-2">${overview?.revenue.total_platform_fees_usd.toFixed(2) || '0.00'}</span>
               </div>
             </div>
           </div>

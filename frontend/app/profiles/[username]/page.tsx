@@ -21,7 +21,7 @@ export default function PublicProfilePage() {
     ;(async () => {
       try {
         setLoading(true)
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(username)}?ngrok-skip-browser-warning=true`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(username)}`, {
           headers: { 'ngrok-skip-browser-warning': '1' },
           cache: 'no-store',
         })
@@ -82,7 +82,7 @@ export default function PublicProfilePage() {
           window.location.href = "/auth"
           return
         }
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(username)}/block?ngrok-skip-browser-warning=true`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(username)}/block`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
           body: JSON.stringify({ action: 'block' })

@@ -44,7 +44,7 @@ export default function Navbar() {
       if (isFetchingRef.current) return
       if (lastTokenRef.current === accessToken) return
       isFetchingRef.current = true
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me?ngrok-skip-browser-warning=true`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'ngrok-skip-browser-warning': '1',
@@ -86,6 +86,15 @@ export default function Navbar() {
         <span className="relative z-10">Dashboard</span>
         <div className="hidden md:block absolute inset-0 bg-orange-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300 scale-95 group-hover:scale-100" />
       </Link>
+      
+      <Link
+        href="/marketplace"
+        className="hidden md:inline-flex text-gray-300 hover:text-orange-400 transition-all duration-300 font-medium relative group px-3 py-2 rounded-lg md:hover:scale-105 active:scale-[0.98] ease-out"
+      >
+        <span className="relative z-10">Marketplace</span>
+        <div className="hidden md:block absolute inset-0 bg-orange-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300 scale-95 group-hover:scale-100" />
+      </Link>
+      
       {userProfile?.role === 'admin' && (
         <Link
           href="/admin"
@@ -107,7 +116,7 @@ export default function Navbar() {
 
   return (
     <nav className="backdrop-blur-xl bg-black/20 text-white p-3 sm:p-4 sticky top-0 z-50 relative animate-slide-in-down">
-      <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(251,146,60,0.06) 0%, rgba(251,146,60,0.00) 40%, rgba(251,146,60,0.06) 100%)" }} />
+  <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(90deg, rgba(251,146,60,0.06) 0%, rgba(251,146,60,0.00) 40%, rgba(251,146,60,0.06) 100%)" }} />
       {pathname === "/dashboard" && (
         <div
           aria-hidden
@@ -115,44 +124,52 @@ export default function Navbar() {
         />
       )}
 
-      <div className="container mx-auto flex justify-between items-center relative z-10">
-        {/* Brand */}
-        <Link
-          href="/"
-          className="text-xl font-bold text-white transition-all duration-300 ease-out md:hover:scale-105 active:scale-[0.98] transform"
-        >
-          <div className="flex items-center space-x-3">
+  <div className="container mx-auto flex items-center justify-between relative z-10">
+        {/* Brand - Left */}
+        <div className="flex items-center space-x-3">
+          <Link
+            href="/"
+            className="text-lg font-bold text-white transition-all duration-300 ease-out md:hover:scale-105 active:scale-[0.98] transform flex items-center space-x-3"
+          >
             <div className="relative group">
               <div className="absolute inset-0 bg-orange-500/20 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <Image
                 src="/images/image.png"
                 alt="Medius Logo"
-                width={32}
-                height={32}
+                width={24}
+                height={24}
                 className="rounded-full relative z-10 border border-orange-400/30 group-hover:border-orange-400/50 transition-colors duration-300"
               />
             </div>
-            <span className="text-white">Medius</span>
-          </div>
-        </Link>
+            <span className="text-white text-lg">Medius</span>
+          </Link>
+        </div>
 
-        {/* Desktop actions */}
-        <div className="hidden md:flex items-center space-x-6">
+        {/* Navigation Links - Center */}
+  <div className="hidden md:flex items-center space-x-8 flex-1 justify-center">
           {user ? (
             <>
               <NavLinks />
-              <div className="flex items-center space-x-4">
-                <div className="text-sm text-gray-400 backdrop-blur-sm bg-white/5 px-3 py-1 rounded-full border border-white/10 hover:bg-white/8 hover:border-white/15 transition-all duration-300 ease-out">
-                  {user.email}
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="backdrop-blur-sm bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 hover:border-orange-400/50 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20 md:hover:scale-105 active:scale-[0.98] transform ease-out"
-                >
-                  Logout
-                </button>
-              </div>
             </>
+          ) : (
+            <NavLinks />
+          )}
+        </div>
+
+        {/* Right Section - Actions */}
+  <div className="hidden md:flex items-center space-x-4">
+          {user && (
+            <div className="hidden md:block text-sm text-gray-400 backdrop-blur-sm bg-white/5 px-3 py-1 rounded-full border border-white/10 hover:bg-white/8 hover:border-white/15 transition-all duration-300 ease-out">
+              {userProfile?.username ? `@${userProfile.username}` : user.email}
+            </div>
+          )}
+          {user ? (
+            <button
+              onClick={handleLogout}
+              className="backdrop-blur-sm bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 hover:border-orange-400/50 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20 md:hover:scale-105 active:scale-[0.98] transform ease-out"
+            >
+              Logout
+            </button>
           ) : (
             <Link
               href="/auth"

@@ -9,7 +9,7 @@ export default function Footer() {
   const isDashboard = pathname?.startsWith("/dashboard")
 
   return (
-    <footer className={`mt-8 border-t border-white/10 bg-black/40 backdrop-blur-md relative z-50 ${isDashboard ? "lg:ml-64" : ""}`}>
+    <footer className={`mt-8 border-t border-white/10 bg-black md:bg-black/40 backdrop-blur-md md:backdrop-blur-md relative z-50 ${isDashboard ? "lg:ml-64" : ""}`}>
       <div className="container mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <span className="text-xs sm:text-sm text-gray-400">@ Medius 2025</span>
         <div className="flex items-center gap-4 text-gray-300">

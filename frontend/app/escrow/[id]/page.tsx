@@ -102,7 +102,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
           setPaypalProcessing(true)
           const { data: { session } } = await supabase.auth.getSession()
           if (!session) throw new Error("Not authenticated")
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/paypal-authorize?ngrok-skip-browser-warning=true`, {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/paypal-authorize`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
             body: JSON.stringify({ token })
@@ -133,7 +133,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
       setPaypalMessage("")
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error("Not authenticated")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/paypal-create?ngrok-skip-browser-warning=true`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/paypal-create`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
       })
@@ -159,7 +159,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
       if (!session) throw new Error('Not authenticated')
       const apiBase = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000' : '')
       if (!apiBase) throw new Error('Missing NEXT_PUBLIC_API_URL for API requests')
-      const res = await fetch(`${apiBase}/api/escrows/${escrowId}?ngrok-skip-browser-warning=true`, {
+      const res = await fetch(`${apiBase}/api/escrows/${escrowId}`, {
         headers: { Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
       })
       const contentType = res.headers.get('content-type') || ''
@@ -183,7 +183,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow!.id}/check-payment?ngrok-skip-browser-warning=true`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow!.id}/check-payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
       })
@@ -213,7 +213,7 @@ export default function EscrowPage({ params }: EscrowPageProps) {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error("Not authenticated")
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/confirm?ngrok-skip-browser-warning=true`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows/${escrow.id}/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
         body: JSON.stringify({ action }),

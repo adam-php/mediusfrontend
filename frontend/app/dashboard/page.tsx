@@ -17,6 +17,7 @@ import {
   ClipboardList,
   RefreshCcw,
   CheckCircle,
+  ShoppingBag,
 } from "lucide-react"
 import { ArrowDownIcon, ArrowUpIcon, Share2Icon, UsersIcon, Search } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -480,6 +481,22 @@ export default function Dashboard() {
             </Link>
             
             <Link
+              href="/marketplace/create"
+              className="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all duration-200"
+            >
+              <PlusCircle className="h-5 w-5" />
+              <span className="font-medium">Create Listing</span>
+            </Link>
+            <Link
+              href="/messages"
+              className="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all duration-200"
+            >
+              <MessageCircle className="h-5 w-5" />
+              <span className="font-medium">Messages</span>
+            </Link>
+            <div className="my-2 h-px bg-white/10" role="separator" aria-hidden="true" />
+            
+            <Link
               href="/profile"
               className="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all duration-200"
             >
@@ -561,8 +578,36 @@ export default function Dashboard() {
                   </Link>
                 </motion.div>
                 <motion.div initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.03 }}>
-                  
+                  <Link
+                    href="/marketplace"
+                    onClick={() => setMobileNavOpen(false)}
+                    className="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition-all duration-200"
+                  >
+                    <ShoppingBag className="h-5 w-5" />
+                    <span className="font-medium">Marketplace</span>
+                  </Link>
                 </motion.div>
+                <motion.div initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.05 }}>
+                  <Link
+                    href="/marketplace/create"
+                    onClick={() => setMobileNavOpen(false)}
+                    className="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-300 hover:bg:white/5 hover:bg-white/5 hover:text-white transition-all duration-200"
+                  >
+                    <PlusCircle className="h-5 w-5" />
+                    <span className="font-medium">Create Listing</span>
+                  </Link>
+                </motion.div>
+                <motion.div initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.07 }}>
+                  <Link
+                    href="/messages"
+                    onClick={() => setMobileNavOpen(false)}
+                    className="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/5 hover:text-white transition-all duration-200"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                    <span className="font-medium">Messages</span>
+                  </Link>
+                </motion.div>
+                <div className="my-2 h-px bg-white/10" role="separator" aria-hidden="true" />
                 <motion.div initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.06 }}>
                   <Link
                     href="/profile"

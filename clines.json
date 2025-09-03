@@ -1,0 +1,28 @@
+{
+  "ignoreFiles": [
+    ".log",
+    ".gitignore",
+    ".csv",
+    ".ini",
+    ".LICENSE",
+    ".gitmodules",
+    "clines.json",
+    "tsconfig.json",
+    "package.json",
+    "package-lock.json"
+  ],
+  "ignoreDirs": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    "logs",
+    ".git",
+    ".idea",
+    ".vscode",
+    "tmp",
+    "out",
+    "public",
+    "static"
+  ]
+}

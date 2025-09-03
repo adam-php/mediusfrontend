@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Disable ESLint during build so builds don't require installing eslint
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Provide safe dev defaults for public envs to avoid undefined API base
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000",

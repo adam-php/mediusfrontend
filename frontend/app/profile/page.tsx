@@ -50,7 +50,7 @@ export default function ProfilePage(): JSX.Element {
     setError("");
     try {
       // profile from backend
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me?ngrok-skip-browser-warning=true`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me`, {
         headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
         cache: 'no-store',
       });
@@ -149,7 +149,7 @@ export default function ProfilePage(): JSX.Element {
       const { data: sessionResp } = await supabase.auth.getSession();
       const token = sessionResp?.session?.access_token;
       if (!token) return;
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me?ngrok-skip-browser-warning=true`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
         body: JSON.stringify({ avatar_url: publicUrl }),
@@ -180,7 +180,7 @@ export default function ProfilePage(): JSX.Element {
       const { data: sessionResp } = await supabase.auth.getSession();
       const token = sessionResp?.session?.access_token;
       if (!token) throw new Error("Not authenticated");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me?ngrok-skip-browser-warning=true`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/me`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': '1' },
         body: JSON.stringify({ display_name: displayName, bio, avatar_url: avatarUrl }),

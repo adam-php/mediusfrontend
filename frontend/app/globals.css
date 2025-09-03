@@ -1,8 +1,10 @@
 @import "tailwindcss";
+@plugin "daisyui";
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --hover-bg: rgba(255,255,255,0.08);
 }
 
  
@@ -95,6 +97,20 @@ html {
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Smooth hover defaults */
+* {
+  scroll-behavior: smooth;
+}
+
+a, button {
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease, transform 200ms ease;
+}
+
+/**** Optional subtle scrollbar (WebKit) ****/
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.15); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.25); }
 
 /* Ensure all interactive buttons show a hand cursor */
 button:not(:disabled),

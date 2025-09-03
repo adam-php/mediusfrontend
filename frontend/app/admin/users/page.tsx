@@ -73,6 +73,7 @@ export default function AdminUsersPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users?${params}`, {
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          "ngrok-skip-browser-warning": "true"
         },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -112,6 +113,7 @@ export default function AdminUsersPage() {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          "ngrok-skip-browser-warning": "true"
         },
         body: JSON.stringify({ action, reason })
       })

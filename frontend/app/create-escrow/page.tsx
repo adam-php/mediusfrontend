@@ -75,10 +75,10 @@ export default function CreateEscrow() {
     XLM: 0.10,
     USD: 1,
     // USDT variants (minimum $1 each)
-    'USDT-ERC20': 1,
-    'USDT-BEP20': 1,
-    'USDT-SOL': 1,
-    'USDT-TRON': 1
+    'USDT-ERC20': 2,
+    'USDT-BEP20': 2,
+    'USDT-SOL': 2,
+    'USDT-TRON': 2
   }), [])
   
 
@@ -249,7 +249,7 @@ export default function CreateEscrow() {
 
     const fetchCurrencies = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/c-currencies?ngrok-skip-browser-warning=true`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/c-currencies`, {
           headers: { 'ngrok-skip-browser-warning': '1' },
         })
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
@@ -313,7 +313,7 @@ export default function CreateEscrow() {
           payment_method: paymentMethod,
           usd_amount: usd,
         }
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calculate-fee?ngrok-skip-browser-warning=true`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calculate-fee`, {
           method: "POST",
           headers: { "Content-Type": "application/json", 'ngrok-skip-browser-warning': '1' },
           body: JSON.stringify(body),
@@ -334,8 +334,23 @@ export default function CreateEscrow() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError("")
+
+    // Treat Enter as "Continue" for steps 1–3
+    if (currentStep < 4) {
+      // Optionally only advance if current step is valid
+      if (
+        (currentStep === 1 && canProceedFromStep1()) ||
+        (currentStep === 2 && canProceedFromStep2()) ||
+        (currentStep === 3 && canProceedFromStep3())
+      ) {
+        nextStep()
+      }
+      return
+    }
+
+    // Step 4: proceed with actual submit
+    setLoading(true)
 
     // Trim the username before validation
     const trimmedUsername = otherPartyUsername.trim()
@@ -356,18 +371,12 @@ export default function CreateEscrow() {
     }
 
     try {
-      // Auth - Enhanced debugging
       const { data: { session } } = await supabase.auth.getSession()
-      console.log("Session data:", session)
-      console.log("Session access token:", session?.access_token)
-      console.log("Session user:", session?.user)
+      if (!session?.access_token) throw new Error("Not authenticated")
 
-      if (!session) throw new Error("Not authenticated - no session")
-      if (!session.access_token) throw new Error("Not authenticated - no access token")
-
-      // Optional UX: ensure user exists early
+      // Ensure counterparty exists
       const existsRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(trimmedUsername)}?ngrok-skip-browser-warning=true`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/users/${encodeURIComponent(trimmedUsername)}`,
         { headers: { 'ngrok-skip-browser-warning': '1' } }
       )
       if (!existsRes.ok) {
@@ -376,7 +385,7 @@ export default function CreateEscrow() {
         return
       }
 
-      // Compute final amount + currency for backend
+      // Compute final amount + currency
       let finalAmount: number
       let finalCurrency: string
       if (paymentMethod === "paypal") {
@@ -398,18 +407,10 @@ export default function CreateEscrow() {
         amount: finalAmount,
         currency: finalCurrency,
         payment_method: paymentMethod,
-        usd_amount: Number.parseFloat(usdAmount), // informational (backend calculates USD internally)
+        usd_amount: Number.parseFloat(usdAmount),
       }
 
-      // Debug: Log the request details
-      console.log("Making API request to:", `${process.env.NEXT_PUBLIC_API_URL}/api/escrows`)
-      console.log("Request payload:", payload)
-      console.log("USD Amount entered:", usdAmount)
-      console.log("Final amount being sent:", payload.amount)
-      console.log("Final currency being sent:", payload.currency)
-      console.log("Authorization token (first 20 chars):", session.access_token.substring(0, 20) + "...")
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows?ngrok-skip-browser-warning=true`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/escrows`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -419,13 +420,8 @@ export default function CreateEscrow() {
         body: JSON.stringify(payload),
       })
 
-      // Debug: Log response details
-      console.log("Response status:", response.status)
-      console.log("Response headers:", Object.fromEntries(response.headers.entries()))
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.error("API Error Response:", errorData)
         throw new Error(errorData.error || `API Error: ${response.status} ${response.statusText}`)
       }
 
@@ -437,6 +433,33 @@ export default function CreateEscrow() {
       setLoading(false)
     }
   }
+
+  const handleFormKeyDown = useCallback((e: React.KeyboardEvent<HTMLFormElement>) => {
+    if ((e.key === "Enter" || e.key === "NumpadEnter") && !e.shiftKey) {
+      const target = e.target as HTMLElement
+      const tag = target.tagName.toLowerCase()
+      const isTextarea = tag === "textarea"
+      const isButton = tag === "button"
+      const isLink = tag === "a"
+
+      // Don’t advance if a dropdown/combobox is active (UsernamePicker or currency dropdown)
+      const inOpenCurrencyDropdown = isDropdownOpen && !!dropdownRef.current?.contains(target)
+      const comboboxOpen = !!target.closest('[role="listbox"],[aria-expanded="true"]')
+
+      if (isTextarea || isButton || isLink || inOpenCurrencyDropdown || comboboxOpen) return
+
+      if (currentStep < 4) {
+        e.preventDefault()
+        if (
+          (currentStep === 1 && canProceedFromStep1()) ||
+          (currentStep === 2 && canProceedFromStep2()) ||
+          (currentStep === 3 && canProceedFromStep3())
+        ) {
+          nextStep()
+        }
+      }
+    }
+  }, [currentStep, isDropdownOpen, canProceedFromStep1, canProceedFromStep2, canProceedFromStep3, nextStep])
 
   const cryptoAmount = getCryptoAmount()
 
@@ -643,7 +666,7 @@ export default function CreateEscrow() {
             <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 rounded-3xl"></div>
             <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-orange-400/50 to-transparent"></div>
 
-            <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
+            <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-6 relative z-10">
               {/* Step 1: Role & Username */}
               {currentStep === 1 && (
                 <div

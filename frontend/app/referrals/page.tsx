@@ -124,7 +124,7 @@ export default function ReferralsPage() {
       }
 
       // Load summary
-      const res = await fetch(`${API_URL}/api/referrals/summary?ngrok-skip-browser-warning=true`, {
+      const res = await fetch(`${API_URL}/api/referrals/summary`, {
         headers: { Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
         cache: 'no-store',
       })
@@ -135,7 +135,7 @@ export default function ReferralsPage() {
       // Load supported currencies (best-effort)
       setCurrLoading(true)
       try {
-        const cRes = await fetch(`${API_URL}/api/supported-currencies?ngrok-skip-browser-warning=true`, {
+        const cRes = await fetch(`${API_URL}/api/supported-currencies`, {
           headers: { 'ngrok-skip-browser-warning': '1' },
           cache: 'no-store',
         })
@@ -171,7 +171,7 @@ export default function ReferralsPage() {
       if (!session) { window.location.href = "/auth"; return }
       if (!claimCode.trim()) throw new Error("Enter a referral code or username")
 
-      const res = await fetch(`${API_URL}/api/referrals/claim?ngrok-skip-browser-warning=true`, {
+      const res = await fetch(`${API_URL}/api/referrals/claim`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
         body: JSON.stringify({ code: claimCode.trim() })
@@ -210,7 +210,7 @@ export default function ReferralsPage() {
       if (!session) { window.location.href = "/auth"; return }
 
       setWithdrawing(true)
-      const res = await fetch(`${API_URL}/api/referrals/withdraw?ngrok-skip-browser-warning=true`, {
+      const res = await fetch(`${API_URL}/api/referrals/withdraw`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': '1' },
         body: JSON.stringify({

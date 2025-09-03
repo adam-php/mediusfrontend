@@ -38,6 +38,7 @@ export default function AdminReferralsPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/referrals?${params}`, {
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          "ngrok-skip-browser-warning": "true"
         },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
